@@ -1,0 +1,41 @@
+name: Deploy to EC2 Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Execute Deployment Script via SSH
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # 1. Navigate to the monorepo root
+          cd /home/ubuntu/csc-platform
+          
+          # 2. Pull latest code
+          git reset --hard
+          git pull origin main
+          
+          # 3. Inject the .env.local file into the web app
+          echo "${{ secrets.ENV_FILE }}" > apps/web/.env.local
+          
+          # 4. Install dependencies using pnpm at the root
+          pnpm install
+          
+          # 5. Build the Next.js web app
+          pnpm --filter web build
+          
+          # 6. Navigate into the web app and restart the Socket.io server
+          cd apps/web
+          pm2 restart csc-web || pm2 start server.js --name "csc-web"
+          
+          # 7. Save PM2 state to survive server reboots
+          pm2 save
