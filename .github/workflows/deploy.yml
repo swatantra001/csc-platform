@@ -35,7 +35,8 @@ jobs:
           
           # 6. Navigate into the web app and restart the Socket.io server
           cd apps/web
-          pm2 restart csc-web || pm2 start server.js --name "csc-web"
+          export NODE_ENV=production
+          pm2 restart csc-web --update-env || pm2 start server.js --name "csc-web"
           
           # 7. Save PM2 state to survive server reboots
           pm2 save
