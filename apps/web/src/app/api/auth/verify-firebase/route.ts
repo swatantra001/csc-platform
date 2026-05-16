@@ -3,23 +3,30 @@ import { supabaseAdmin } from "@/lib/supabase";
 import * as admin from "firebase-admin";
 import jwt from "jsonwebtoken"; // Ensure jsonwebtoken is installed
 
-if (!admin.apps.length) {
-  // 1. Get the raw key
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
-  
-  // 2. Remove wrapping double quotes if the .env parser added them accidentally
-  privateKey = privateKey.replace(/^"|"$/g, '');
-  
-  // 3. Convert literal "\n" strings into actual structural line breaks
-  privateKey = privateKey.replace(/\\n/g, '\n');
 
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
-    }),
-  });
+// ✨ FIX: Try/Catch prevents build-time crashes
+try {
+  if (!admin.apps.length) {
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
+    
+    // Remove wrapping quotes if they got injected by the server
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.substring(1, privateKey.length - 1);
+    }
+    
+    // Force literal \n to become actual structural line breaks
+    privateKey = privateKey.replace(/\\n/g, '\n');
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      }),
+    });
+  }
+} catch (error) {
+  console.error("Firebase Admin Init Error (Ignored during build):", error);
 }
 
 export async function POST(req: NextRequest) {
