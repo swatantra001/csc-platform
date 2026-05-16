@@ -4,24 +4,20 @@ import * as admin from "firebase-admin";
 import jwt from "jsonwebtoken"; // Ensure jsonwebtoken is installed
 
 if (!admin.apps.length) {
-  // Try replacing literal \n strings, OR if the environment variable just stripped them entirely, 
-  // wrap it properly.
-  let formattedKey = process.env.FIREBASE_PRIVATE_KEY || "";
-
-  if (formattedKey.includes("\\n")) {
-    formattedKey = formattedKey.replace(/\\n/g, '\n');
-  } else if (!formattedKey.includes("\n") && formattedKey.startsWith("-----BEGIN PRIVATE KEY-----")) {
-    // If GitHub Secrets stripped the newlines completely, reconstruct it:
-    formattedKey = formattedKey.replace("-----BEGIN PRIVATE KEY-----", "-----BEGIN PRIVATE KEY-----\n");
-    formattedKey = formattedKey.replace("-----END PRIVATE KEY-----", "\n-----END PRIVATE KEY-----\n");
-    formattedKey = formattedKey.replace(/([^\n]{64})/g, "$1\n"); // Add a newline every 64 characters
-  }
+  // 1. Get the raw key
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
+  
+  // 2. Remove wrapping double quotes if the .env parser added them accidentally
+  privateKey = privateKey.replace(/^"|"$/g, '');
+  
+  // 3. Convert literal "\n" strings into actual structural line breaks
+  privateKey = privateKey.replace(/\\n/g, '\n');
 
   admin.initializeApp({
     credential: admin.credential.cert({
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: formattedKey,
+      privateKey: privateKey,
     }),
   });
 }
