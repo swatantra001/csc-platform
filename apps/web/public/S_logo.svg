@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <defs>
+
+    <!-- Layered glow: large soft halo + tighter bloom -->
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="22" result="halo"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9"  result="bloom"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3"  result="crisp"/>
+      <feMerge>
+        <feMergeNode in="halo"/>
+        <feMergeNode in="bloom"/>
+        <feMergeNode in="crisp"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- The S letterform as a reusable symbol -->
+    <!-- 
+      Construction logic:
+      The S is built from two cubic-bezier arcs (top bowl + bottom bowl)
+      joined at the waist. Each arc is drawn as an open path.
+      OUTER path uses stroke-width 30.
+      INNER path uses the same geometry offset inward ~22px, stroke-width 13.
+      End terminations are flat butt caps (angular, matching reference).
+      Curves use round joins at arc transitions.
+    -->
+
+    <g id="S-shape">
+
+      <!-- ══════════════════════════════════════════
+           OUTER STROKE  — thick, defines letter body
+           ══════════════════════════════════════════ -->
+      <path
+        id="outer"
+        d="
+          M 352,108
+          C 320,78  258,64  205,72
+          C 152,80  112,108 104,150
+          C  94,196 120,232 165,254
+          L 240,282
+          C 300,304 338,332 335,372
+          C 332,412 292,438 245,444
+          C 198,450 152,438 108,416
+        "
+        fill="none"
+        stroke="white"
+        stroke-width="30"
+        stroke-linecap="butt"
+        stroke-linejoin="round"
+      />
+
+      <!-- ══════════════════════════════════════════
+           INNER STROKE  — thinner, inset ~22px
+           Creates the parallel double-outline effect
+           ══════════════════════════════════════════ -->
+      <path
+        id="inner"
+        d="
+          M 326,130
+          C 300,106 247,95  202,102
+          C 158,109 126,132 120,168
+          C 112,207 135,238 174,258
+          L 242,284
+          C 296,305 328,332 325,366
+          C 322,400 286,423 244,428
+          C 202,433 160,422 122,402
+        "
+        fill="none"
+        stroke="white"
+        stroke-width="13"
+        stroke-linecap="butt"
+        stroke-linejoin="round"
+      />
+
+      <!-- ══════════════════════════════════════════
+           TERMINATOR BARS
+           Flat angular connectors at top-right and
+           bottom-left, linking outer to inner end-point.
+           Gives the reference's characteristic sharp cut.
+           ══════════════════════════════════════════ -->
+      <!-- Top bar: connects outer(352,108) → inner(326,130) -->
+      <line x1="352" y1="108" x2="326" y2="130"
+            stroke="white" stroke-width="13" stroke-linecap="butt"/>
+
+      <!-- Bottom bar: connects outer(108,416) → inner(122,402) -->
+      <line x1="108" y1="416" x2="122" y2="402"
+            stroke="white" stroke-width="13" stroke-linecap="butt"/>
+
+    </g>
+
+  </defs>
+
+  <!-- ── Glow layer (blurred, slightly transparent) ── -->
+  <use href="#S-shape" filter="url(#glow)" opacity="0.6"/>
+
+  <!-- ── Crisp white layer on top ── -->
+  <use href="#S-shape"/>
+
+</svg>
