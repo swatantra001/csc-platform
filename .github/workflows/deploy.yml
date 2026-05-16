@@ -24,19 +24,23 @@ jobs:
           git reset --hard
           git pull origin main
           
-          # 3. Inject the .env.local file into the web app
+          # 3. FORCE DELETE any accidental nested workspace files
+          rm -f apps/web/pnpm-workspace.yaml
+          
+          # 4. Inject the .env.local file into the web app
           echo "${{ secrets.ENV_FILE }}" > apps/web/.env.local
           
-          # 4. Install dependencies using pnpm at the root
+          # 5. Clean up old build cache and install dependencies
+          rm -rf apps/web/.next
           pnpm install
           
-          # 5. Build the Next.js web app
+          # 6. Build the Next.js web app
           pnpm --filter web build
           
-          # 6. Navigate into the web app and restart the Socket.io server
+          # 7. Navigate into the web app and restart the Socket.io server
           cd apps/web
           export NODE_ENV=production
           pm2 restart csc-web --update-env || pm2 start server.js --name "csc-web"
           
-          # 7. Save PM2 state to survive server reboots
+          # 8. Save PM2 state to survive server reboots
           pm2 save
