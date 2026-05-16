@@ -904,6 +904,7 @@ import React, {
   useEffect,
   useCallback,
   KeyboardEvent,
+  Suspense,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { adminCreatePostAction, adminUpdatePostAction, adminGetPostAction } from "@/app/actions/admin";
@@ -1295,7 +1296,7 @@ function SecHdr({ icon, label }: { icon: string; label: string }) {
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-export default function AdminCreatePostPage() {
+function CreatePostContent() {
   const [isDark, setIsDark] = useState(false);
   const T = isDark ? THEMES_TOKENS.dark : THEMES_TOKENS.light;
 
@@ -2123,5 +2124,17 @@ export default function AdminCreatePostPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+
+
+// 2. Default export ko ek wrapper bana do jo Suspense use kare
+export default function CreatePostPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>}>
+      <CreatePostContent />
+    </Suspense>
   );
 }
