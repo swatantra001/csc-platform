@@ -4,6 +4,9 @@ import React from 'react'
 import { FiX } from 'react-icons/fi'
 import { FaGithub, FaLinkedin } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
+
 
 const navItems = ['Home', 'About', 'Skills', 'Projects', 'Experience', 'Contact']
 
@@ -16,6 +19,9 @@ const socials = [
 const OverlayMenu = ({ isOpen, onClose }) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const origin = isMobile ? '95% 8%' : '50% 8%'
+
+   const { user, isLoggedIn, logout, loading: authLoading } = useAuth();
+    const router = useRouter()
 
   return (
     <AnimatePresence>
@@ -78,6 +84,30 @@ const OverlayMenu = ({ isOpen, onClose }) => {
                 </a>
               </motion.li>
             ))}
+            {/* 2. ✨ THE NEW MOBILE LOGIN BUTTON ✨ */}
+            <motion.button 
+              onClick={() => {
+                if (isLoggedIn) {
+                  logout();
+                } else {
+                  router.push('/login');
+                }
+                onClose();
+              }}
+              whileHover={{ scale: 1.06, cursor: 'pointer' }}
+              whileTap={{ scale: 0.96 }}
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: navLinks.length * 0.1 }} // Animates in right after the last link
+              className="mt-6 inline-flex items-center gap-2 px-8 py-3.5 rounded-full text-xl font-bold text-black"
+              style={{ background: 'linear-gradient(135deg, #1cd8d2 0%, #00bf8f 100%)', boxShadow: '0 0 20px rgba(28,216,210,0.35)', fontFamily: "'Syne', sans-serif" }}
+            >
+              {authLoading ? 'Loading...' : isLoggedIn ? (
+                <span className='flex items-center gap-2'>Logout <LogOutIcon className='w-6 h-6' /></span>
+              ) : (
+                <span className='flex items-center gap-2'>Login <LogInIcon className='w-6 h-6' /></span>
+              )}
+            </motion.button>
           </ul>
 
           {/* bottom bar */}

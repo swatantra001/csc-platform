@@ -1,1233 +1,3 @@
-// "use client";
-
-// import React, { useState, useEffect, useRef, useCallback, type ClipboardEvent, type DragEvent } from "react";
-// import { supabase } from "@/lib/supabase";
-// import { uploadChatFileAction } from "@/app/actions/storage";
-// import { io, Socket } from "socket.io-client";
-
-// // Ensure these match the exact exported names from your actions file!
-// import {
-//   adminGetRequestsAction, adminGetChatAction, adminSendMessageAction, adminUpdateReqStatusAction,
-//   adminAssignReqAction, adminCreateNewChatAction, adminSearchUsersAction, adminGetTeamAction,
-//   adminUpdateUserRoleAction, adminGetPostsAction, adminCreatePostAction, adminDeletePostAction,
-//   adminDeleteRequestsAction,
-//   getAdminProfileAction
-// } from "@/app/actions/admin";
-
-// // ════════════════════════════════════════════════════════════════════════════════
-// // 1. TYPES & INTERFACES
-// // ════════════════════════════════════════════════════════════════════════════════
-// type UserRole = "user" | "co_admin" | "main_admin";
-// type RequestStatus = "pending" | "seen" | "processing" | "payment_pending" | "done" | "cancelled";
-// type Priority = "regular" | "prepaid";
-// type MessageType = "text" | "doc" | "payment" | "voice";
-
-// interface DbUser {
-//   id: string;
-//   mobile: string;
-//   name: string | null;
-//   role: UserRole;
-//   position_label: string | null;
-//   active: boolean;
-//   wallet_balance: number;
-// }
-
-// interface DbRequest {
-//   id: string;
-//   user_id: string;
-//   service: string;
-//   title: string;
-//   description: string | null;
-//   status: RequestStatus;
-//   priority: Priority;
-//   assigned_to: string | null;
-//   payment_status: "na" | "pending" | "paid";
-//   payment_amount: number;
-//   created_at: string;
-//   updated_at: string;
-//   users?: DbUser;
-//   assignee?: DbUser;
-// }
-
-// interface DbMessage {
-//   id: string;
-//   request_id: string;
-//   sender_id: string;
-//   sender_role: UserRole;
-//   message_type: MessageType;
-//   content: string | null;
-//   doc_name: string | null;
-//   doc_url: string | null;
-//   doc_size: string | null;
-//   is_result_doc: boolean;
-//   payment_amount: number | null;
-//   payment_status?: string; // ✨ ADD THIS LINE
-//   reply_to_id: string | null;
-//   created_at: string;
-//   users?: DbUser;
-//   reply_to_msg?: DbMessage;
-// }
-
-// interface DbDocument {
-//   id: string;
-//   request_id: string;
-//   file_name: string;
-//   file_size: string;
-//   file_type: string;
-//   is_sensitive: boolean;
-//   is_result: boolean;
-//   created_at: string;
-//   file_url: string;
-// }
-
-// interface DbPost {
-//   id: string;
-//   theme: "scheme" | "offer" | "announcement" | "branding";
-//   title: string;
-//   short_desc: string | null;
-//   service_cost: number;
-//   is_published: boolean;
-//   view_count: number;
-//   created_at: string;
-//   users?: DbUser;
-// }
-
-// // ════════════════════════════════════════════════════════════════════════════════
-// // 2. UTILS & HOOKS
-// // ════════════════════════════════════════════════════════════════════════════════
-// function useDebounce<T>(value: T, delay: number): T {
-//   const [debouncedValue, setDebouncedValue] = useState<T>(value);
-//   useEffect(() => {
-//     const handler = setTimeout(() => setDebouncedValue(value), delay);
-//     return () => clearTimeout(handler);
-//   }, [value, delay]);
-//   return debouncedValue;
-// }
-
-// const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-// const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-// const fmtCurrency = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-// const formatBytes = (bytes: number) => {
-//   if (bytes === 0) return '0 Bytes';
-//   const k = 1024;
-//   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-//   const i = Math.floor(Math.log(bytes) / Math.log(k));
-//   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-// };
-
-// // ════════════════════════════════════════════════════════════════════════════════
-// // 3. ICONS
-// // ════════════════════════════════════════════════════════════════════════════════
-// const Icons = {
-//   Search: () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>,
-//   Chat: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
-//   Analytics: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>,
-//   Team: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
-//   Post: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>,
-//   Attach: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>,
-//   Send: () => <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>,
-//   Check: () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>,
-//   DoubleCheck: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="18 6 7 17 2 12" /><polyline points="22 6 11 17 7 13" /></svg>,
-//   Payment: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" ry="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>,
-//   Close: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
-//   Reply: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></svg>,
-//   Download: () => <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>,
-//   Document: () => <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-// };
-
-// // ════════════════════════════════════════════════════════════════════════════════
-// // 4. MAIN COMPONENT
-// // ════════════════════════════════════════════════════════════════════════════════
-// export default function CSCAdminPanel() {
-//   const [dark, setDark] = useState(true);
-//   const [activeTab, setActiveTab] = useState<"requests" | "analytics" | "team" | "post">("requests");
-//   const [currentUser, setCurrentUser] = useState<DbUser | null>(null);
-
-//   // Queue State
-//   const [requests, setRequests] = useState<DbRequest[]>([]);
-//   const [isLoadingQueue, setIsLoadingQueue] = useState(true);
-//   const [filterStatus, setFilterStatus] = useState<"all" | RequestStatus>("all");
-//   const [searchQ, setSearchQ] = useState("");
-//   const debouncedSearchQ = useDebounce(searchQ, 500);
-
-//   // Active Chat State
-//   const [selectedReq, setSelectedReq] = useState<DbRequest | null>(null);
-//   const [sidePanel, setSidePanel] = useState<"chat" | "docs" | "timeline">("chat");
-//   const [messages, setMessages] = useState<DbMessage[]>([]);
-//   const [documents, setDocuments] = useState<DbDocument[]>([]);
-
-//   // Chat Input State
-//   const [replyText, setReplyText] = useState("");
-//   const [replyAmount, setReplyAmount] = useState("");
-//   const [showPaymentReply, setShowPaymentReply] = useState(false);
-//   const [replyingToMsg, setReplyingToMsg] = useState<DbMessage | null>(null);
-//   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-//   const [isDragOver, setIsDragOver] = useState(false);
-//   const [isSending, setIsSending] = useState(false);
-
-//   const msgEndRef = useRef<HTMLDivElement | null>(null);
-//   const fileInputRef = useRef<HTMLInputElement>(null);
-
-//   // Modals & Other Tabs
-//   const [showAssign, setShowAssign] = useState(false);
-//   const [showMarkDone, setShowMarkDone] = useState(false);
-//   const [showNewChat, setShowNewChat] = useState(false);
-//   const [userSearchQ, setUserSearchQ] = useState("");
-//   const debouncedUserSearch = useDebounce(userSearchQ, 400);
-//   const [userSearchResults, setUserSearchResults] = useState<DbUser[]>([]);
-//   const [isCreatingChat, setIsCreatingChat] = useState(false);
-
-//   const [teamMembers, setTeamMembers] = useState<DbUser[]>([]);
-//   const [posts, setPosts] = useState<DbPost[]>([]);
-//   const [showNewPost, setShowNewPost] = useState(false);
-//   const [postTitle, setPostTitle] = useState("");
-//   const [postBody, setPostBody] = useState("");
-//   const [postTheme, setPostTheme] = useState<"scheme" | "offer" | "announcement" | "branding">("scheme");
-//   const [postCost, setPostCost] = useState("");
-//   const [isPosting, setIsPosting] = useState(false);
-//   const [socket, setSocket] = useState<Socket | null>(null);
-//   const [teamSearch, setTeamSearch] = useState(""); // ✨ ADD THIS LINE
-
-//   const [isSelectMode, setIsSelectMode] = useState(false);
-//   const [selectedReqIds, setSelectedReqIds] = useState<string[]>([]);
-
-//   const isMainAdmin = currentUser?.role === "main_admin";
-
-//  // ─── INITIALIZATION ───
-//   useEffect(() => {
-//     async function initUser() {
-//       try {
-//         // ✨ Ask the server who is logged in (it reads the secure cookie)
-//         const user = await getAdminProfileAction();
-
-//         if (user) {
-//           setCurrentUser(user as unknown as DbUser);
-//         } else {
-//           // If no secure cookie is found, kick them to the login screen
-//           window.location.href = "/";
-//         }
-//       } catch (e) {
-//         console.error("Failed to load user profile:", e);
-//       }
-//     }
-//     initUser();
-//   }, []);
-
-//   // ─── QUEUE SOCKET FETCHING ───
-//   const fetchQueue = useCallback(async () => {
-//     try {
-//       const data = await adminGetRequestsAction(filterStatus, debouncedSearchQ);
-//       setRequests(data as any || []);
-//     } catch (err) { console.error(err); }
-//     finally { setIsLoadingQueue(false); }
-//   }, [filterStatus, debouncedSearchQ]);
-
-//   // ─── INITIALIZE SOCKET & QUEUE ───
-//   useEffect(() => {
-//     // Connect to the custom Socket.io server
-//     const socketInstance = io();
-//     setSocket(socketInstance);
-
-//     // Whenever anyone fires a queue refresh event, fetch the new queue
-//     socketInstance.on("refresh_queue", () => {
-//       fetchQueue();
-//     });
-
-//     fetchQueue(); // Initial fetch
-
-//     return () => {
-//       socketInstance.disconnect();
-//     };
-//   }, [fetchQueue]);
-
-//   // ─── CHAT SOCKET FETCHING ───
-//   const loadChat = useCallback(async () => {
-//     if (!selectedReq) return;
-//     try {
-//       const { messages: msgs, documents: docs } = await adminGetChatAction(selectedReq.id);
-
-//       // Link replies locally for UI visualization
-//       const enrichedMsgs = (msgs as any[]).map((m: any) => ({
-//         ...m, reply_to_msg: m.reply_to_id ? msgs.find((old: any) => old.id === m.reply_to_id) : undefined
-//       }));
-
-//       setMessages(enrichedMsgs);
-//       setDocuments(docs as any);
-
-//       // Auto mark as seen
-//       if (selectedReq.status === "pending") {
-//         await adminUpdateReqStatusAction(selectedReq.id, "seen");
-//         setRequests(p => p.map(r => r.id === selectedReq.id ? { ...r, status: "seen" } : r));
-//       }
-//     } catch (err) { console.error("Chat load error", err); }
-//   }, [selectedReq]);
-
-//   // ─── CHAT SOCKET LISTENER ───
-//   useEffect(() => {
-//     if (!selectedReq || !socket) return;
-
-//     // 1. Tell the server we are entering this specific chat room
-//     socket.emit("join_chat", selectedReq.id);
-
-//     // 2. Fetch history from DB so we have the past messages
-//     async function loadChatHistory() {
-//       if (!selectedReq || !socket) return;
-//       try {
-//         const { messages: msgs, documents: docs } = await adminGetChatAction(selectedReq.id);
-//         const enrichedMsgs = (msgs as any[]).map((m: any) => ({
-//           ...m, reply_to_msg: m.reply_to_id ? msgs.find((old: any) => old.id === m.reply_to_id) : undefined
-//         }));
-//         setMessages(enrichedMsgs);
-//         setDocuments(docs as any);
-
-//         if (selectedReq.status === "pending") {
-//           await adminUpdateReqStatusAction(selectedReq.id, "seen");
-//           setRequests(p => p.map(r => r.id === selectedReq.id ? { ...r, status: "seen" } : r));
-//           socket.emit("trigger_queue_refresh"); // Tell other admins the status changed
-//         }
-//       } catch (err) { console.error("Chat load error", err); }
-//     }
-//     loadChatHistory();
-
-//     // 3. Listen for INSTANT new messages coming through the socket
-//     const handleNewMessage = (newMsg: any) => {
-//       setMessages(prev => {
-//         // Prevent duplicates if React fires twice
-//         if (prev.some(m => m.id === newMsg.id)) return prev;
-
-//         const rep = newMsg.reply_to_id ? prev.find(old => old.id === newMsg.reply_to_id) : undefined;
-//         return [...prev, { ...newMsg, reply_to_msg: rep }];
-//       });
-//     };
-
-//     socket.on("new_message", handleNewMessage);
-
-//     return () => {
-//       socket.off("new_message", handleNewMessage);
-//     };
-//   }, [selectedReq, socket]);
-
-//   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sidePanel]);
-
-//   // ─── FETCH TABS ───
-//   useEffect(() => {
-//     if (activeTab === "team") adminGetTeamAction().then((res: any) => setTeamMembers(res)).catch(console.error);
-//     if (activeTab === "post") adminGetPostsAction().then((res: any) => setPosts(res)).catch(console.error);
-//   }, [activeTab]);
-
-//   // ─── NEW CHAT SEARCH ───
-//   useEffect(() => {
-//     if (debouncedUserSearch.length > 2) {
-//       adminSearchUsersAction(debouncedUserSearch).then((res: any) => setUserSearchResults(res)).catch(console.error);
-//     } else {
-//       setUserSearchResults([]);
-//     }
-//   }, [debouncedUserSearch]);
-
-//   const handleBulkDelete = async () => {
-//     if (selectedReqIds.length === 0) return;
-//     if (!confirm(`Are you sure you want to delete ${selectedReqIds.length} requests? This deletes all messages and files permanently.`)) return;
-
-//     try {
-//       await adminDeleteRequestsAction(selectedReqIds);
-//       setSelectedReqIds([]);
-//       setIsSelectMode(false);
-//       if (selectedReq && selectedReqIds.includes(selectedReq.id)) {
-//         setSelectedReq(null); // Close chat if active chat was deleted
-//       }
-//       fetchQueue();
-//       socket?.emit("trigger_queue_refresh");
-//     } catch (e: any) {
-//       alert("Delete failed: " + e.message);
-//     }
-//   };
-
-//   // ════════════════════════════════════════════════════════════════════════════════
-//   // 5. SECURE ACTION HANDLERS (Inside Component Scope!)
-//   // ════════════════════════════════════════════════════════════════════════════════
-
-//   const updateRole = async (userId: string, role: UserRole) => {
-//     try {
-//       await adminUpdateUserRoleAction(userId, role);
-//       setTeamMembers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
-//       // ✨ THIS FIRES THE KICK SIGNAL TO THE USER
-//       socket?.emit("force_logout_user", userId);
-//     } catch (e: any) { alert("Failed to update role: " + e.message); }
-//   };
-
-//   const removeCoAdmin = async (userId: string) => {
-//     if (!confirm("Revoke admin access for this user?")) return;
-//     try {
-//       await adminUpdateUserRoleAction(userId, 'user');
-//       setTeamMembers(prev => prev.filter(u => u.id !== userId));
-//       // ✨ THIS FIRES THE KICK SIGNAL TO THE USER
-//       socket?.emit("force_logout_user", userId);
-//     } catch (e: any) { alert("Failed to revoke access: " + e.message); }
-//   };
-
-//   // ─── LISTEN FOR FORCED LOGOUT (Admin Side) ───
-//   useEffect(() => {
-//     if (!socket || !currentUser) return;
-
-//     const handleKick = async () => {
-//       alert("Your account role has been updated. Please log in again.");
-//       await supabase.auth.signOut();
-//       window.location.href = "/";
-//     };
-
-//     socket.on(`logout_command_${currentUser.id}`, handleKick);
-//     return () => { socket.off(`logout_command_${currentUser.id}`, handleKick); };
-//   }, [socket, currentUser]);
-
-//   const assignTo = async (adminId: string, adminName: string) => {
-//     if (!selectedReq) return;
-//     try {
-//       await adminAssignReqAction(selectedReq.id, adminId);
-//       setRequests(p => p.map(r => r.id === selectedReq.id ? { ...r, assigned_to: adminId, assignee: { name: adminName } as any } : r));
-//       setSelectedReq(p => p ? { ...p, assigned_to: adminId, assignee: { name: adminName } as any } : p);
-//       setShowAssign(false);
-//     } catch (err: any) { alert("Assign failed: " + err.message); }
-//   };
-
-//   const removePendingFile = (idx: number) => {
-//     setPendingFiles(prev => prev.filter((_, i) => i !== idx));
-//   };
-
-//   const handleDownload = async (url: string, filename: string) => {
-//     try {
-//       const response = await fetch(url);
-//       if (!response.ok) throw new Error("Network response was not ok");
-//       const blob = await response.blob();
-//       const blobUrl = window.URL.createObjectURL(blob);
-//       const link = document.createElement('a');
-//       link.href = blobUrl;
-//       link.download = filename || "download";
-//       document.body.appendChild(link);
-//       link.click();
-//       document.body.removeChild(link);
-//       window.URL.revokeObjectURL(blobUrl);
-//     } catch (e) {
-//       console.error("Download failed, opening in new tab", e);
-//       window.open(url, '_blank');
-//     }
-//   };
-
-//   const startNewChat = async (user: DbUser) => {
-//     setIsCreatingChat(true);
-//     try {
-//       const data = await adminCreateNewChatAction(user.id);
-//       setShowNewChat(false); setUserSearchQ(""); setActiveTab("requests");
-//       setRequests(p => [data as any, ...p]); setSelectedReq(data as any);
-//     } catch (err: any) { alert(err.message); }
-//     finally { setIsCreatingChat(false); }
-//   };
-
-//   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     if (e.target.files) setPendingFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-//   };
-
-//   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-//     e.preventDefault(); setIsDragOver(false);
-//     if (e.dataTransfer.files) setPendingFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
-//   };
-
-//   const sendReply = async (type: MessageType = "text") => {
-//     if (!selectedReq || !currentUser) return;
-//     if (type === "text" && !replyText.trim() && pendingFiles.length === 0) return;
-
-//     setIsSending(true);
-//     try {
-//       // 1. Upload files securely via Server Action
-//       const uploadedDocs = [];
-//       for (const file of pendingFiles) {
-//         const formData = new FormData();
-//         formData.append("file", file);
-//         formData.append("requestId", selectedReq.id);
-
-//         const uploadRes = await uploadChatFileAction(formData);
-//         if (!uploadRes.success) throw new Error(uploadRes.error);
-
-//         uploadedDocs.push({
-//           name: uploadRes.name,
-//           url: uploadRes.url,
-//           size: formatBytes(file.size)
-//         });
-//       }
-
-//       // 2. Handle Text / Payment Message
-//       if (replyText.trim() || type === "payment") {
-//         // A. Strict Database Payload (No fake UI columns)
-//         const dbPayload = {
-//           request_id: selectedReq.id,
-//           message_type: type,
-//           content: type === "text" ? replyText.trim() : null,
-//           payment_amount: type === "payment" ? Number(replyAmount) : null,
-//           is_result_doc: false,
-//           reply_to_id: replyingToMsg?.id || null
-//         };
-
-//         // B. Socket Payload (Includes UI details like sender names & temp IDs)
-//         const socketPayload = {
-//           ...dbPayload,
-//           id: `temp-${Date.now()}`,
-//           sender_id: currentUser.id, // Fixed from .sub to .id
-//           sender_role: currentUser.role,
-//           created_at: new Date().toISOString(),
-//           users: { name: currentUser.name, role: currentUser.role }
-//         };
-
-//         // Save cleanly to DB, broadcast fully to Socket
-//         await adminSendMessageAction(dbPayload);
-//         socket?.emit("send_message", socketPayload);
-//         socket?.emit("trigger_queue_refresh");
-//       }
-
-//       // 3. Handle Document Messages
-//       for (const doc of uploadedDocs) {
-//         const dbDocPayload = {
-//           request_id: selectedReq.id,
-//           message_type: "doc" as MessageType,
-//           doc_name: doc.name,
-//           doc_url: doc.url,
-//           doc_size: doc.size,
-//           is_result_doc: false,
-//           reply_to_id: replyingToMsg?.id || null
-//         };
-
-//         const socketDocPayload = {
-//           ...dbDocPayload,
-//           id: `temp-${Date.now()}-${Math.random()}`,
-//           sender_id: currentUser.id, // Fixed from .sub to .id
-//           sender_role: currentUser.role,
-//           created_at: new Date().toISOString(),
-//           users: { name: currentUser.name, role: currentUser.role }
-//         };
-
-//         await adminSendMessageAction(dbDocPayload);
-//         socket?.emit("send_message", socketDocPayload);
-//         socket?.emit("trigger_queue_refresh");
-//       }
-
-//       // 4. Cleanup
-//       setReplyText(""); setReplyAmount(""); setShowPaymentReply(false);
-//       setReplyingToMsg(null); setPendingFiles([]);
-
-//     } catch (err: any) {
-//       alert("Send failed: " + err.message);
-//     } finally {
-//       setIsSending(false);
-//     }
-//   };
-
-//   const changeStatus = async (newStatus: RequestStatus) => {
-//     if (!selectedReq) return;
-//     try {
-//       await adminUpdateReqStatusAction(selectedReq.id, newStatus);
-//       setRequests(p => p.map(r => r.id === selectedReq.id ? { ...r, status: newStatus } : r));
-//       setSelectedReq(p => p ? { ...p, status: newStatus } : p);
-//       setShowMarkDone(false);
-//     } catch (err: any) { alert(err.message); }
-//   };
-
-//   const handlePostPaste = (e: ClipboardEvent<HTMLDivElement>) => {
-//     try {
-//       const parsed = JSON.parse(e.clipboardData.getData("text").replace(/```json|```/g, "").trim());
-//       if (parsed.title) setPostTitle(parsed.title);
-//       if (parsed.shortDesc) setPostBody(parsed.shortDesc);
-//     } catch { /* ignore */ }
-//   };
-
-//   const publishPost = async () => {
-//     setIsPosting(true);
-//     try {
-//       const data = await adminCreatePostAction({ title: postTitle, short_desc: postBody, theme: postTheme, cost: postCost });
-//       setPosts([data as any, ...posts]);
-//       setShowNewPost(false); setPostTitle(""); setPostBody(""); setPostCost("");
-//     } catch (err: any) { alert("Post failed: " + err.message); }
-//     finally { setIsPosting(false); }
-//   };
-
-//   const deletePost = async (postId: string) => {
-//     if (!confirm("Delete this post?")) return;
-//     try {
-//       await adminDeletePostAction(postId);
-//       setPosts(prev => prev.filter(x => x.id !== postId));
-//     } catch (err: any) { alert(err.message); }
-//   }
-
-//   // ════════════════════════════════════════════════════════════════════════════════
-//   // 6. RENDER CONFIG & CSS
-//   // ════════════════════════════════════════════════════════════════════════════════
-//   const themeStyles = {
-//     "--color-bg": dark ? "#0a0a0a" : "#efeae2",
-//     "--color-surf": dark ? "#141414" : "#ffffff",
-//     "--color-surf2": dark ? "#1c1c1c" : "#f5f3ef",
-//     "--color-surf3": dark ? "#262626" : "#ebe6dd",
-//     "--color-bord": dark ? "#2e2e2e" : "#e0dcd3",
-//     "--color-bord2": dark ? "#3e3e3e" : "#d0cabc",
-//     "--color-text": dark ? "#f0ede6" : "#1a1814",
-//     "--color-textM": dark ? "#a09b92" : "#5a554f",
-//     "--color-textL": dark ? "#6a655f" : "#9a958d",
-//     "--color-gold": "#c8860a",
-//     "--color-goldL": "#e6a830",
-//     "--color-danger": "#e55039",
-//     "--color-success": "#27ae60",
-
-//     // WhatsApp Specific Colors
-//     "--chat-bg": dark ? "#0b141a" : "#efeae2",
-//     "--bubble-admin": dark ? "#005c4b" : "#d9fdd3",
-//     "--bubble-user": dark ? "#202c33" : "#ffffff",
-//     "--bubble-meta": dark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.45)",
-//     "--chat-wallpaper": dark
-//       ? `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 30-30 30L0 30z' fill='%23ffffff' fill-opacity='0.02'/%3E%3C/svg%3E")`
-//       : `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 30-30 30L0 30z' fill='%23000000' fill-opacity='0.03'/%3E%3C/svg%3E")`
-//   } as React.CSSProperties;
-
-//   const STATUS_CFG = {
-//     pending: { color: "#b87a00", bg: dark ? "#2a1f08" : "#fffbf0", border: "#f0d090", label: "Pending", icon: "⏳" },
-//     seen: { color: "#2a7ade", bg: dark ? "#080f1f" : "#f0f5ff", border: "#90b0e0", label: "Seen", icon: "👁️" },
-//     processing: { color: "#9a60e0", bg: dark ? "#1a0f2a" : "#f8f0ff", border: "#d0b0f0", label: "Processing", icon: "⚙️" },
-//     payment_pending: { color: "#e55039", bg: dark ? "#2a0808" : "#fff0f0", border: "#f0b0b0", label: "Payment", icon: "💳" },
-//     done: { color: "#27ae60", bg: dark ? "#0a1f0f" : "#f0fbf4", border: "#90d0a0", label: "Done", icon: "✅" },
-//     cancelled: { color: "#6a655f", bg: dark ? "#1a1a1a" : "#f0f0f0", border: "#ccc", label: "Cancelled", icon: "❌" },
-//   };
-
-//   const PureCSS = `
-//     .nav-item { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 20px; cursor:pointer; font-size:11px; color:var(--color-textL); font-weight:700; letter-spacing:0.05em; text-transform:uppercase; transition:all 0.15s; background:transparent; border:none; border-bottom:3px solid transparent; }
-//     .nav-item.on { color:var(--color-gold); background:var(--color-surf2); border-bottom-color:var(--color-gold); }
-//     .nav-item:hover:not(.on) { color:var(--color-textM); background:var(--color-surf3); }
-
-//     .req-row { padding:14px 16px; cursor:pointer; border-bottom:1px solid var(--color-bord); transition:background 0.1s; display:flex; gap:14px; align-items:center; }
-//     .req-row:hover { background:var(--color-surf2); }
-//     .req-row.active { background:var(--color-surf2); }
-
-//     .tab-pill { padding:6px 14px; border-radius:16px; background:var(--color-surf2); color:var(--color-textM); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.12s; border:1px solid var(--color-bord); }
-//     .tab-pill.on { background:var(--color-gold); border-color:var(--color-gold); color:#fff; }
-
-//     .action-btn { padding:10px 20px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.12s; display:inline-flex; align-items:center; gap:8px; border:1px solid; }
-//     .btn-gold { background:var(--color-gold); border-color:var(--color-gold); color:#fff; }
-//     .btn-gold:hover:not(:disabled) { background:var(--color-goldL); }
-//     .btn-gold:disabled { opacity: 0.5; cursor: not-allowed; }
-//     .btn-outline { background:transparent; border-color:var(--color-bord2); color:var(--color-text); }
-//     .btn-outline:hover { background:var(--color-surf2); }
-//     .btn-danger { background:transparent; border-color:var(--color-danger); color:var(--color-danger); }
-//     .btn-success { background:var(--color-success); border-color:var(--color-success); color:#fff; }
-
-//     .adm-input { width:100%; padding:14px 16px; border:1px solid var(--color-bord2); border-radius:8px; background:var(--color-surf); color:var(--color-text); font-size:15px; outline:none; transition:border-color 0.15s; }
-//     .adm-input:focus { border-color:var(--color-gold); }
-
-//     .status-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:800; border:1px solid; }
-
-//     .msg-bubble-admin, .msg-bubble-user { position:relative; padding:10px 14px; border-radius:8px; max-width:65%; box-shadow:0 1px 2px rgba(0,0,0,0.1); display:flex; flex-direction:column; }
-//     .msg-bubble-admin { background:var(--bubble-admin); color:var(--color-text); border-top-right-radius:0; }
-//     .msg-bubble-user { background:var(--bubble-user); color:var(--color-text); border-top-left-radius:0; }
-
-//     .msg-bubble-admin::before { content:''; position:absolute; top:0; right:-8px; width:0; height:0; border-top:10px solid var(--bubble-admin); border-right:10px solid transparent; }
-//     .msg-bubble-user::before { content:''; position:absolute; top:0; left:-8px; width:0; height:0; border-top:10px solid var(--bubble-user); border-left:10px solid transparent; }
-
-//     .reply-block { background:rgba(0,0,0,0.1); border-left:4px solid var(--color-gold); padding:6px 10px; border-radius:4px; margin-bottom:6px; cursor:pointer; }
-//     .reply-block .rep-name { font-size:12px; font-weight:700; color:var(--color-gold); margin-bottom:2px; }
-//     .reply-block .rep-text { font-size:13px; color:var(--color-text); opacity:0.8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-//     .doc-card { display:flex; align-items:center; gap:12px; padding:12px; background:rgba(0,0,0,0.1); border-radius:6px; margin-top:4px; width:100%; max-width: 320px; }
-//     .doc-icon { width:40px; height:40px; background:var(--color-danger); color:#fff; border-radius:4px; display:flex; align-items:center; justify-content:center; flex-shrink: 0; }
-//     .doc-img { width:200px; height:200px; object-fit:cover; border-radius:6px; margin-top:4px; cursor:pointer; }
-
-//     .fab-new-chat { position:fixed; bottom:10px; left:300px; background:var(--color-gold); color:#fff; padding:0 14px; height:42px; border-radius:26px; display:flex; align-items:center; justify-content:center; gap:8px; font-size:15px; font-weight:700; cursor:pointer; border:none; box-shadow:0 4px 12px rgba(200,134,10,0.3); z-index:100; transition: transform 0.2s; }
-//     .fab-new-chat:hover { transform:translateY(-2px); }
-
-//     .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(2px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
-//     .modal-box { background:var(--color-surf); border:1px solid var(--color-bord2); border-radius:12px; width:100%; max-width:500px; padding:32px; animation:popIn 0.2s ease-out; box-shadow:0 20px 40px rgba(0,0,0,0.5); }
-
-//     .mono { font-family: 'IBM Plex Mono', monospace; }
-//     @keyframes popIn { 0% { transform:scale(0.95); opacity:0; } 100% { transform:scale(1); opacity:1; } }
-//     @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-//   `;
-
-//   return (
-//     <div style={themeStyles} className="flex flex-col h-screen overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]">
-//       <style dangerouslySetInnerHTML={{ __html: PureCSS }} />
-
-//       {/* ── TOP NAV ── */}
-//       <div style={{ background: "var(--color-surf)", borderBottom: "1px solid var(--color-bord)", display: "flex", alignItems: "stretch", height: 68, flexShrink: 0, zIndex: 200 }}>
-//         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 24px", borderRight: "1px solid var(--color-bord)" }}>
-//           <div style={{ width: 40, height: 40, background: "var(--color-gold)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}><Icons.Team /></div>
-//           <div>
-//             <div className="mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--color-gold)", letterSpacing: "0.05em" }}>CSC Shambhuganj</div>
-//             <div style={{ fontSize: 11, color: "var(--color-textM)", fontWeight: 600 }}>ADMIN PANEL</div>
-//           </div>
-//         </div>
-
-//         <div style={{ display: "flex", flex: 1, overflowX: "auto" }}>
-//           {[
-//             { id: "requests", icon: <Icons.Chat />, label: "Support Chats" },
-//             { id: "team", icon: <Icons.Team />, label: "Team" },
-//             { id: "post", icon: <Icons.Post />, label: "Feed" },
-//           ].map(n => (
-//             <button key={n.id} className={`nav-item ${activeTab === n.id ? "on" : ""}`} onClick={() => setActiveTab(n.id as any)}>
-//               <span style={{ fontSize: 20 }}>{n.icon}</span>
-//               {n.label}
-//             </button>
-//           ))}
-//         </div>
-
-//         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "0 24px" }}>
-//           <button onClick={() => setDark(d => !d)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--color-text)", fontSize: 20 }}>{dark ? "☀️" : "🌙"}</button>
-//           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 16px", background: "var(--color-surf2)", borderRadius: 30, border: "1px solid var(--color-bord)" }}>
-//             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--color-gold)", color: "#fff", fontSize: 14, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
-//               {currentUser?.name?.charAt(0).toUpperCase() || "A"}
-//             </div>
-//             <div style={{ display: "flex", flexDirection: "column" }}>
-//               <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1 }}>{currentUser?.name}</span>
-//               <span style={{ fontSize: 10, color: "var(--color-textM)", fontWeight: 600 }}>{currentUser?.role?.replace("_", " ").toUpperCase()}</span>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* ── MAIN LAYOUT ── */}
-//       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-
-//         {/* ════════════════════════════════════════════════════════════
-//             WHATSAPP CHAT VIEW
-//         ════════════════════════════════════════════════════════════ */}
-//         {activeTab === "requests" && (
-//           <>
-//             {/* QUEUE SIDEBAR */}
-//             <div style={{ width: 400, borderRight: "1px solid var(--color-bord)", display: "flex", flexDirection: "column", background: "var(--color-surf)", flexShrink: 0 }}>
-//               <div style={{ padding: "16px", borderBottom: "1px solid var(--color-bord)", background: "var(--color-surf)" }}>
-//                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-//                   <div style={{ position: "relative", flex: 1, marginRight: 12 }}>
-//                     <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--color-textL)" }}><Icons.Search /></span>
-//                     <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search chats..." className="adm-input" style={{ paddingLeft: 44, borderRadius: 24, padding: "10px 20px 10px 44px" }} />
-//                   </div>
-//                   <button
-//                     onClick={() => { setIsSelectMode(!isSelectMode); setSelectedReqIds([]); }}
-//                     style={{ background: isSelectMode ? "var(--color-danger)" : "var(--color-surf2)", border: `1px solid ${isSelectMode ? "var(--color-danger)" : "var(--color-bord)"}`, color: isSelectMode ? "#fff" : "var(--color-text)", padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 700 }}
-//                   >
-//                     {isSelectMode ? "Cancel" : "Select"}
-//                   </button>
-//                 </div>
-
-//                 {!isSelectMode ? (
-//                   <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-//                     {["all", "pending", "processing", "done"].map(s => (
-//                       <button key={s} className={`tab-pill ${filterStatus === s ? "on" : ""}`} onClick={() => setFilterStatus(s as any)}>{s}</button>
-//                     ))}
-//                   </div>
-//                 ) : (
-//                   <button onClick={handleBulkDelete} disabled={selectedReqIds.length === 0} style={{ width: "100%", padding: "8px", background: selectedReqIds.length > 0 ? "var(--color-danger)" : "var(--color-surf2)", color: selectedReqIds.length > 0 ? "#fff" : "var(--color-textM)", border: "none", borderRadius: 8, cursor: selectedReqIds.length > 0 ? "pointer" : "not-allowed", fontWeight: 700 }}>
-//                     Delete Selected ({selectedReqIds.length})
-//                   </button>
-//                 )}
-//               </div>
-
-//               <div style={{ flex: 1, overflowY: "auto" }}>
-//                 {isLoadingQueue ? (
-//                   <div style={{ padding: 40, textAlign: "center", color: "var(--color-textL)" }}>Syncing...</div>
-//                 ) : requests.length === 0 ? (
-//                   <div style={{ padding: 60, textAlign: "center", color: "var(--color-textM)" }}>No chats found.</div>
-//                 ) : (
-//                   requests.map(req => {
-//                     const isActive = selectedReq?.id === req.id;
-//                     const userName = req.users?.name || "Citizen";
-//                     return (
-//                       <div key={req.id} className={`req-row ${isActive ? "active" : ""}`}
-//                         onClick={() => {
-//                           if (isSelectMode) {
-//                             setSelectedReqIds(prev => prev.includes(req.id) ? prev.filter(id => id !== req.id) : [...prev, req.id]);
-//                           } else {
-//                             setSelectedReq(req);
-//                           }
-//                         }}>
-//                         {isSelectMode && (
-//                           <input
-//                             type="checkbox"
-//                             checked={selectedReqIds.includes(req.id)}
-//                             readOnly
-//                             style={{ width: 18, height: 18, cursor: "pointer", accentColor: "var(--color-danger)", flexShrink: 0 }}
-//                           />
-//                         )}
-//                         <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--color-surf3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20, color: "var(--color-textM)", fontWeight: 700 }}>
-//                           {userName.charAt(0).toUpperCase()}
-//                         </div>
-//                         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-//                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-//                             <div style={{ fontWeight: 600, fontSize: 16, color: "var(--color-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userName}</div>
-//                             <span style={{ fontSize: 12, color: "var(--color-textM)" }}>{formatTime(req.updated_at)}</span>
-//                           </div>
-//                           <div style={{ fontSize: 14, color: "var(--color-textM)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-//                             <span style={{ color: "var(--color-gold)", fontWeight: 600 }}>{req.service}</span> • {req.title}
-//                           </div>
-//                         </div>
-//                       </div>
-//                     );
-//                   })
-//                 )}
-//               </div>
-//             </div>
-
-//             <button className="fab-new-chat" onClick={() => setShowNewChat(true)}>
-//               <Icons.Chat /> New
-//             </button>
-
-//             {/* CHAT PANEL */}
-//             {selectedReq ? (
-//               <div
-//                 style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--chat-bg)", backgroundImage: "var(--chat-wallpaper)", backgroundSize: "400px", position: "relative" }}
-//                 onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-//                 onDragLeave={() => setIsDragOver(false)}
-//                 onDrop={handleDrop}
-//               >
-//                 {/* Drag Overlay */}
-//                 {isDragOver && (
-//                   <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 24, fontWeight: 700, border: "4px dashed var(--color-gold)", margin: 16, borderRadius: 16 }}>
-//                     Drop files to attach to chat
-//                   </div>
-//                 )}
-
-//                 {/* Chat Header */}
-//                 <div style={{ background: "var(--color-surf)", borderBottom: "1px solid var(--color-bord)", padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, zIndex: 10 }}>
-//                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-//                     <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--color-surf3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700 }}>
-//                       {selectedReq.users?.name?.charAt(0).toUpperCase()}
-//                     </div>
-//                     <div>
-//                       <div style={{ fontSize: 16, fontWeight: 600 }}>{selectedReq.users?.name || "Citizen"}</div>
-//                       <div style={{ fontSize: 13, color: "var(--color-textM)" }}>{selectedReq.service} • {selectedReq.users?.mobile}</div>
-//                     </div>
-//                   </div>
-//                   <div style={{ display: "flex", gap: 12 }}>
-//                     {isMainAdmin && <button className="action-btn btn-outline" onClick={() => setShowAssign(true)}><Icons.Team /> Assign</button>}
-//                     {selectedReq.status !== "done" && <button className="action-btn btn-success" onClick={() => setShowMarkDone(true)}><Icons.Check /> Resolve</button>}
-//                   </div>
-//                 </div>
-
-//                 <div style={{ background: "var(--color-surf2)", borderBottom: "1px solid var(--color-bord)", display: "flex", padding: "0 32px", flexShrink: 0 }}>
-//                   {["chat", "docs"].map(t => (
-//                     <button key={t} className={`nav-item ${sidePanel === t ? "on" : ""}`} style={{ fontSize: 13, padding: "16px 24px", border: "none", borderBottom: sidePanel === t ? "3px solid var(--color-gold)" : "3px solid transparent" }} onClick={() => setSidePanel(t as any)}>
-//                       {t === "chat" ? "💬 Messages" : `📁 Documents (${documents.length})`}
-//                     </button>
-//                   ))}
-//                 </div>
-
-//                 {/* MESSAGES AREA */}
-//                 {sidePanel === "chat" && (
-//                   <>
-//                     <div style={{ flex: 1, overflowY: "auto", padding: "32px 5%", display: "flex", flexDirection: "column", gap: 12 }}>
-//                       {messages.map((msg) => {
-//                         const isUser = msg.sender_role === "user";
-//                         return (
-//                           <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-start" : "flex-end", animation: "fadeIn 0.2s ease" }}>
-//                             <div className={isUser ? "msg-bubble-user" : "msg-bubble-admin"}>
-
-//                               {!isUser && msg.users?.name !== currentUser?.name && (
-//                                 <div style={{ fontSize: 12, color: "var(--color-gold)", fontWeight: 700, marginBottom: 4 }}>~ {msg.users?.name}</div>
-//                               )}
-
-//                               {msg.reply_to_msg && (
-//                                 <div className="reply-block" onClick={() => { }}>
-//                                   <div className="rep-name">{msg.reply_to_msg.users?.name || "User"}</div>
-//                                   <div className="rep-text">{msg.reply_to_msg.content || (msg.reply_to_msg.message_type === "doc" ? "📄 Document" : "💳 Payment")}</div>
-//                                 </div>
-//                               )}
-
-//                               {/* ── MESSAGE CONTENT ── */}
-//                               {msg.message_type === "payment" ? (
-//                                 <div style={{
-//                                   minWidth: 260,
-//                                   background: msg.payment_status === "paid" ? "var(--color-success)" : "var(--color-gold)",
-//                                   borderRadius: 8,
-//                                   padding: 16,
-//                                   color: "#fff",
-//                                   margin: "-10px -14px", // ✨ This stretches the card over the green WhatsApp bubble
-//                                   boxShadow: "0 4px 15px rgba(0,0,0,0.15)"
-//                                 }}>
-//                                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-//                                     <span style={{ background: "rgba(255,255,255,0.25)", padding: 8, borderRadius: "50%", display: "flex" }}>
-//                                       {msg.payment_status === "paid" ? <Icons.Check /> : <Icons.Payment />}
-//                                     </span>
-//                                     <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.02em" }}>
-//                                       {msg.payment_status === "paid" ? "Payment Received ✅" : "Payment Pending ⏳"}
-//                                     </div>
-//                                   </div>
-
-//                                   <div className="mono" style={{ fontSize: 36, fontWeight: 800, marginBottom: 8, textShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>
-//                                     {fmtCurrency(msg.payment_amount || 0)}
-//                                   </div>
-
-//                                   {msg.payment_status === "paid" ? (
-//                                     <div style={{ fontSize: 12, background: "rgba(255,255,255,0.25)", padding: "6px 12px", borderRadius: 6, display: "inline-block", fontWeight: 700 }}>
-//                                       Verified via Razorpay
-//                                     </div>
-//                                   ) : (
-//                                     <div style={{ fontSize: 13, opacity: 0.9, fontWeight: 600 }}>
-//                                       Waiting for <span className="font-bold text-amber-950">{currentUser?.name}</span> to pay...
-//                                     </div>
-//                                   )}
-//                                 </div>
-//                               ) : msg.message_type === "doc" ? (
-//                                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-//                                   {msg.doc_name?.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-//                                     <div style={{ position: "relative" }}>
-//                                       <img src={msg.doc_url || ""} alt="attachment" className="doc-img" onClick={() => window.open(msg.doc_url || "", "_blank")} />
-//                                       <button onClick={() => handleDownload(msg.doc_url || "", msg.doc_name || "file")} style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", padding: 8, borderRadius: "50%" }}><Icons.Download /></button>
-//                                     </div>
-//                                   ) : (
-//                                     <div className="doc-card">
-//                                       <div className="doc-icon"><Icons.Document /></div>
-//                                       <div style={{ flex: 1, minWidth: 100 }}>
-//                                         <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.doc_name}</div>
-//                                         <div style={{ fontSize: 12, color: "var(--bubble-meta)" }}>{msg.doc_size}</div>
-//                                       </div>
-//                                       <button onClick={() => handleDownload(msg.doc_url || "", msg.doc_name || "file")} style={{ background: "var(--color-surf2)", border: `1px solid var(--color-bord)`, color: "var(--color-text)", cursor: "pointer", padding: 8, borderRadius: 4 }}><Icons.Download /></button>
-//                                     </div>
-//                                   )}
-//                                   {msg.content && <span style={{ fontSize: 15, marginTop: 4 }}>{msg.content}</span>}
-//                                 </div>
-//                               ) : (
-//                                 <span style={{ fontSize: 15, lineHeight: 1.5 }}>{msg.content}</span>
-//                               )}
-
-//                               <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, marginTop: 4, minWidth: 60 }}>
-//                                 <span style={{ fontSize: 11, color: "var(--bubble-meta)" }}>{formatTime(msg.created_at)}</span>
-//                                 {!isUser && <span style={{ color: "var(--color-success)" }}><Icons.DoubleCheck /></span>}
-//                               </div>
-//                             </div>
-
-//                             <div style={{ display: "flex", gap: 8, padding: "4px 8px", opacity: 0.7 }}>
-//                               <button onClick={() => setReplyingToMsg(msg)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-textM)", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}><Icons.Reply /> Reply</button>
-//                             </div>
-//                           </div>
-//                         );
-//                       })}
-//                       <div ref={msgEndRef} />
-//                     </div>
-
-//                     {/* INPUT BAR */}
-//                     <div style={{ background: "var(--color-surf)", padding: "12px 24px", zIndex: 10 }}>
-
-//                       {replyingToMsg && (
-//                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surf2)", borderLeft: "4px solid var(--color-gold)", padding: "10px 16px", borderRadius: "8px 8px 0 0", marginBottom: -4 }}>
-//                           <div>
-//                             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-gold)", marginBottom: 2 }}>Replying to {replyingToMsg.users?.name || "User"}</div>
-//                             <div style={{ fontSize: 14, color: "var(--color-textM)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 400 }}>
-//                               {replyingToMsg.content || (replyingToMsg.message_type === "doc" ? "📄 Document" : "💳 Payment")}
-//                             </div>
-//                           </div>
-//                           <button onClick={() => setReplyingToMsg(null)} style={{ background: "none", border: "none", color: "var(--color-textM)", cursor: "pointer" }}><Icons.Close /></button>
-//                         </div>
-//                       )}
-
-//                       {pendingFiles.length > 0 && (
-//                         <div style={{ display: "flex", gap: 12, padding: "12px", background: "var(--color-surf2)", borderRadius: "8px 8px 0 0", marginBottom: -4, overflowX: "auto" }}>
-//                           {pendingFiles.map((file, i) => (
-//                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--color-surf)", padding: "8px 12px", border: "1px solid var(--color-bord)", borderRadius: 6 }}>
-//                               <span style={{ color: "var(--color-textL)" }}><Icons.Document /></span>
-//                               <div style={{ maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>{file.name}</div>
-//                               <button onClick={() => removePendingFile(i)} style={{ background: "none", border: "none", color: "var(--color-danger)", cursor: "pointer" }}><Icons.Close /></button>
-//                             </div>
-//                           ))}
-//                         </div>
-//                       )}
-
-//                       {showPaymentReply && (
-//                         <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 16px", background: "var(--color-surf2)", borderRadius: "8px 8px 0 0", marginBottom: -4 }}>
-//                           <span style={{ fontSize: 20, color: "var(--color-textM)", fontWeight: 700 }}>₹</span>
-//                           <input value={replyAmount} onChange={e => setReplyAmount(e.target.value.replace(/\D/g, ""))} placeholder="Amount..." className="adm-input" style={{ width: 150, fontSize: 18, fontWeight: 700 }} />
-//                           <button className="action-btn btn-gold" onClick={() => sendReply("payment")}>Send Payment Link</button>
-//                           <button className="action-btn btn-outline" onClick={() => setShowPaymentReply(false)}><Icons.Close /></button>
-//                         </div>
-//                       )}
-
-//                       <div style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--color-surf2)", padding: "8px 16px", borderRadius: (replyingToMsg || pendingFiles.length > 0 || showPaymentReply) ? "0 0 24px 24px" : "24px" }}>
-//                         <input type="file" multiple ref={fileInputRef} style={{ display: "none" }} onChange={handleFileSelect} />
-//                         <button className="action-btn btn-outline" style={{ border: "none", padding: 8, background: "transparent" }} onClick={() => fileInputRef.current?.click()} title="Attach File"><Icons.Attach /></button>
-//                         <button className="action-btn btn-outline" style={{ border: "none", padding: 8, background: "transparent" }} onClick={() => setShowPaymentReply(!showPaymentReply)} title="Request Payment"><Icons.Payment /></button>
-
-//                         <input
-//                           value={replyText}
-//                           onChange={e => setReplyText(e.target.value)}
-//                           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendReply("text"); } }}
-//                           placeholder="Type a message..."
-//                           style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 16, color: "var(--color-text)", padding: "8px 0" }}
-//                         />
-
-//                         <button onClick={() => sendReply("text")} disabled={isSending || (!replyText.trim() && pendingFiles.length === 0)} style={{ background: "var(--color-gold)", color: "#fff", border: "none", width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: (isSending || (!replyText.trim() && pendingFiles.length === 0)) ? "not-allowed" : "pointer", opacity: (isSending || (!replyText.trim() && pendingFiles.length === 0)) ? 0.5 : 1 }}>
-//                           {isSending ? "..." : <Icons.Send />}
-//                         </button>
-//                       </div>
-//                     </div>
-//                   </>
-//                 )}
-
-//                 {/* DOCS PANEL */}
-//                 {sidePanel === "docs" && (
-//                   <div style={{ flex: 1, overflowY: "auto", padding: "32px", background: "var(--color-bg)" }}>
-//                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
-//                       {documents.map(doc => (
-//                         <div key={doc.id} className="doc-row" style={{ background: "var(--color-surf)", padding: 20, borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", alignItems: "center", gap: 16 }}>
-//                           <div style={{ fontSize: 36, color: "var(--color-textL)" }}><Icons.Post /></div>
-//                           <div style={{ flex: 1, minWidth: 0 }}>
-//                             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text)", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 6 }}>{doc.file_name}</div>
-//                             <div style={{ fontSize: 12, color: "var(--color-textM)" }}>{doc.file_size} · {formatDate(doc.created_at)}</div>
-//                           </div>
-//                           <button onClick={() => handleDownload(doc.file_url, doc.file_name)} style={{ background: "var(--color-surf2)", border: "1px solid var(--color-bord)", color: "var(--color-text)", cursor: "pointer", padding: 12, borderRadius: 6 }}><Icons.Download /></button>
-//                         </div>
-//                       ))}
-//                       {documents.length === 0 && <div style={{ color: "var(--color-textL)", padding: 40, textAlign: "center", gridColumn: "1/-1" }}>No documents uploaded for this request.</div>}
-//                     </div>
-//                   </div>
-//                 )}
-//               </div>
-//             ) : (
-//               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 20, color: "var(--color-textL)", background: "var(--color-surf2)" }}>
-//                 <div style={{ width: 120, height: 120, borderRadius: "50%", background: "var(--color-surf)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-bord2)" }}>
-//                   <Icons.Chat />
-//                 </div>
-//                 <div style={{ fontSize: 24, fontWeight: 300, color: "var(--color-text)" }}>CSC Shambhuganj Chat</div>
-//                 <div style={{ fontSize: 14 }}>Select a chat to view messages or click "New Chat" to begin.</div>
-//               </div>
-//             )}
-//           </>
-//         )}
-
-//         {/* ════════════════════════════════════════════════════════════
-//             TEAM & USER MANAGEMENT VIEW
-//         ════════════════════════════════════════════════════════════ */}
-//         {activeTab === "team" && (
-//           <div style={{ flex: 1, overflowY: "auto", padding: "40px", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
-
-//             {/* Header & Search Bar */}
-//             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap", gap: 20 }}>
-//               <div>
-//                 <div className="mono" style={{ fontSize: 24, color: "var(--color-gold)", fontWeight: 700 }}>USER & TEAM MANAGEMENT</div>
-//                 <div style={{ color: "var(--color-textM)", fontSize: 15, marginTop: 8 }}>Manage all registered users, operator roles, and system access.</div>
-//               </div>
-
-//               <div style={{ position: "relative", width: 300, flexShrink: 0 }}>
-//                 <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--color-textM)" }}><Icons.Search /></span>
-//                 <input
-//                   value={teamSearch}
-//                   onChange={e => setTeamSearch(e.target.value)}
-//                   placeholder="Search by name or mobile..."
-//                   className="adm-input"
-//                   style={{ paddingLeft: 44, borderRadius: 24, padding: "12px 20px 12px 44px" }}
-//                 />
-//               </div>
-//             </div>
-
-//             {/* User Grid */}
-//             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 24 }}>
-//               {teamMembers
-//                 .filter(u => !teamSearch || u.name?.toLowerCase().includes(teamSearch.toLowerCase()) || u.mobile?.includes(teamSearch))
-//                 .map(user => (
-//                   <div key={user.id} style={{ background: "var(--color-surf)", border: `1px solid ${user.role === "main_admin" ? "var(--color-gold)" : user.role === "co_admin" ? "var(--color-success)" : "var(--color-bord)"}`, borderRadius: 12, padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
-//                     <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-//                       <div style={{ width: 60, height: 60, borderRadius: "50%", background: user.role === "main_admin" ? "var(--color-gold)" : user.role === "co_admin" ? "var(--color-success)" : "var(--color-surf2)", color: user.role !== "user" ? "#fff" : "var(--color-text)", fontSize: 24, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid var(--color-bord)` }}>
-//                         {user.name?.charAt(0).toUpperCase() || "U"}
-//                       </div>
-//                       <div>
-//                         <div style={{ fontWeight: 700, fontSize: 18, color: "var(--color-text)" }}>{user.name || "Unknown User"}</div>
-//                         <div className="mono" style={{ fontSize: 12, color: user.role === "main_admin" ? "var(--color-gold)" : user.role === "co_admin" ? "var(--color-success)" : "var(--color-textM)", fontWeight: 700, letterSpacing: "0.08em", marginTop: 4 }}>
-//                           {user.role === "main_admin" ? "🏛️ MAIN ADMIN" : user.role === "co_admin" ? "🛡️ CO-ADMIN" : "👤 CITIZEN"}
-//                         </div>
-//                       </div>
-//                     </div>
-
-//                     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24, fontSize: 14, color: "var(--color-textM)" }}>
-//                       <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid var(--color-bord)" }}>
-//                         <span>Mobile:</span> <span style={{ color: "var(--color-text)", fontWeight: 600 }}>{user.mobile}</span>
-//                       </div>
-//                     </div>
-
-//                     {isMainAdmin && user.id !== currentUser?.id && (
-//                       <div style={{ display: "flex", gap: 12 }}>
-//                         <select className="adm-input" style={{ flex: 1, padding: "10px", fontSize: 14 }} value={user.role} onChange={(e) => updateRole(user.id, e.target.value as UserRole)}>
-//                           <option value="user">Citizen (User)</option>
-//                           <option value="co_admin">Co-Admin</option>
-//                           <option value="main_admin">Main Admin</option>
-//                         </select>
-//                         {user.role !== "user" && (
-//                           <button className="action-btn btn-danger" onClick={() => removeCoAdmin(user.id)} title="Revoke Access"><Icons.Close /></button>
-//                         )}
-//                       </div>
-//                     )}
-//                   </div>
-//                 ))}
-
-//               {/* Empty state if search finds no one */}
-//               {teamMembers.filter(u => !teamSearch || u.name?.toLowerCase().includes(teamSearch.toLowerCase()) || u.mobile?.includes(teamSearch)).length === 0 && (
-//                 <div style={{ gridColumn: "1/-1", padding: 60, textAlign: "center", color: "var(--color-textL)" }}>
-//                   No users found matching "{teamSearch}"
-//                 </div>
-//               )}
-//             </div>
-//           </div>
-//         )}
-
-//         {/* ════════════════════════════════════════════════════════════
-//             POSTS VIEW
-//         ════════════════════════════════════════════════════════════ */}
-//         {activeTab === "post" && (
-//           <div style={{ flex: 1, overflowY: "auto", padding: "32px", maxWidth: 1000, margin: "0 auto", width: "100%", background: "var(--color-bg)" }}>
-//             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-//               <div>
-//                 <div className="mono" style={{ fontSize: 20, color: "var(--color-gold)", fontWeight: 700 }}>LANDING PAGE POSTS</div>
-//               </div>
-//               <button className="action-btn btn-gold" onClick={() => setShowNewPost(true)}><Icons.Post /> Create New Post</button>
-//             </div>
-
-//             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-//               {posts.map((p) => (
-//                 <div key={p.id} style={{ background: "var(--color-surf)", border: "1px solid var(--color-bord)", borderRadius: 8, padding: "24px", display: "flex", alignItems: "flex-start", gap: 24, boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
-//                   <div style={{ width: 64, height: 64, borderRadius: 8, background: "var(--color-surf2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0, border: "1px solid var(--color-bord)" }}>
-//                     {p.theme === "scheme" ? "🏛️" : p.theme === "offer" ? "🎁" : "📢"}
-//                   </div>
-//                   <div style={{ flex: 1 }}>
-//                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-//                       <div style={{ fontWeight: 700, fontSize: 20, color: "var(--color-text)" }}>{p.title}</div>
-//                       <span style={{ fontSize: 11, background: p.is_published ? "var(--color-success)" : "var(--color-bord2)", color: "#fff", padding: "4px 12px", borderRadius: 4, fontWeight: 800 }}>{p.is_published ? "LIVE" : "DRAFT"}</span>
-//                     </div>
-//                     <div style={{ fontSize: 15, color: "var(--color-textM)", marginBottom: 16, lineHeight: 1.6 }}>{p.short_desc}</div>
-//                   </div>
-//                   {isMainAdmin && (
-//                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-//                       <button className="action-btn btn-danger" onClick={() => deletePost(p.id)}>Delete</button>
-//                     </div>
-//                   )}
-//                 </div>
-//               ))}
-//               {posts.length === 0 && <div style={{ padding: 60, textAlign: "center", color: "var(--color-textL)", border: "1px dashed var(--color-bord)", borderRadius: 8 }}>No posts published yet.</div>}
-//             </div>
-//           </div>
-//         )}
-//       </div>
-
-//       {/* ════════════════════════════════════════════════════════════
-//           MODALS
-//       ════════════════════════════════════════════════════════════ */}
-//       {showNewChat && (
-//         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setShowNewChat(false); }}>
-//           <div className="modal-box" style={{ padding: 0 }}>
-//             <div style={{ padding: "20px 24px", background: "var(--color-surf2)", borderBottom: "1px solid var(--color-bord)", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "8px 8px 0 0" }}>
-//               <div style={{ fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}><Icons.Chat /> Start New Chat</div>
-//               <button onClick={() => setShowNewChat(false)} style={{ background: "none", border: "none", color: "var(--color-textL)", cursor: "pointer" }}><Icons.Close /></button>
-//             </div>
-//             <div style={{ padding: "24px" }}>
-//               <div style={{ position: "relative", marginBottom: 16 }}>
-//                 <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--color-textM)" }}><Icons.Search /></span>
-//                 <input value={userSearchQ} onChange={e => setUserSearchQ(e.target.value)} placeholder="Search citizen by name or mobile..." className="adm-input" style={{ paddingLeft: 44, borderRadius: 8 }} autoFocus />
-//               </div>
-//               <div style={{ maxHeight: 300, overflowY: "auto", margin: "0 -24px", padding: "0 24px" }}>
-//                 {userSearchResults.map(user => (
-//                   <div key={user.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 0", borderBottom: "1px solid var(--color-bord)", cursor: "pointer" }} onClick={() => startNewChat(user)}>
-//                     <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--color-gold)", color: "#fff", fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-//                       {user.name?.charAt(0).toUpperCase() || "U"}
-//                     </div>
-//                     <div>
-//                       <div style={{ fontSize: 16, fontWeight: 600, color: "var(--color-text)" }}>{user.name || "Unknown"}</div>
-//                       <div style={{ fontSize: 13, color: "var(--color-textM)" }}>{user.mobile}</div>
-//                     </div>
-//                   </div>
-//                 ))}
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {showAssign && (
-//         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setShowAssign(false); }}>
-//           <div className="modal-box">
-//             <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 24, display: "flex", alignItems: "center", gap: 10 }}><Icons.Team /> Assign Operator</div>
-//             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-//               {teamMembers.map(op => (
-//                 <div key={op.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px", background: "var(--color-surf2)", border: "1px solid var(--color-bord)", borderRadius: 8, cursor: "pointer" }} onClick={() => assignTo(op.id, op.name || "")}>
-//                   <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--color-gold)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{op.name?.charAt(0).toUpperCase()}</div>
-//                   <div>
-//                     <div style={{ fontWeight: 700, fontSize: 15 }}>{op.name}</div>
-//                     <div className="mono" style={{ fontSize: 11, color: "var(--color-textM)", marginTop: 4 }}>{op.role.replace("_", " ").toUpperCase()}</div>
-//                   </div>
-//                 </div>
-//               ))}
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {showNewPost && (
-//         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setShowNewPost(false); }}>
-//           <div className="modal-box" style={{ maxWidth: 640, padding: 40 }} onPaste={handlePostPaste}>
-//             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-//               <div style={{ fontWeight: 700, fontSize: 22, color: "var(--color-text)" }}>📢 Create Post</div>
-//               <button onClick={() => setShowNewPost(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-textL)" }}><Icons.Close /></button>
-//             </div>
-
-//             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-//               <div>
-//                 <label style={{ fontSize: 11, fontWeight: 700, color: "var(--color-textM)", marginBottom: 10, display: "block", letterSpacing: "0.08em" }}>THEME CATEGORY</label>
-//                 <div style={{ display: "flex", gap: 12 }}>
-//                   {["scheme", "offer", "branding", "announcement"].map(th => (
-//                     <button key={th} onClick={() => setPostTheme(th as any)} style={{ flex: 1, padding: "12px", border: `1px solid ${postTheme === th ? "var(--color-gold)" : "var(--color-bord2)"}`, borderRadius: 6, background: postTheme === th ? "var(--color-surf2)" : "transparent", color: postTheme === th ? "var(--color-gold)" : "var(--color-textM)", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{th}</button>
-//                   ))}
-//                 </div>
-//               </div>
-
-//               <input value={postTitle} onChange={e => setPostTitle(e.target.value)} placeholder="Title (e.g. UP Scholarship 2025)" className="adm-input" style={{ fontSize: 16, padding: "16px" }} />
-//               <textarea value={postBody} onChange={e => setPostBody(e.target.value)} placeholder="Write details here..." className="adm-input" rows={6} style={{ resize: "vertical", fontSize: 15, lineHeight: 1.6, padding: "16px" }} />
-//               <input type="number" value={postCost} onChange={e => setPostCost(e.target.value)} placeholder="Service Cost (Leave blank if free)" className="adm-input" style={{ width: 240, fontSize: 16, padding: "16px" }} />
-
-//               <button className="action-btn btn-gold" style={{ justifyContent: "center", padding: "16px", fontSize: 16 }} onClick={publishPost} disabled={isPosting || !postTitle || !postBody}>
-//                 {isPosting ? "Publishing..." : "📢 Publish to Site"}
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {showMarkDone && selectedReq && (
-//         <div className="modal-bg" onClick={e => { if (e.target === e.currentTarget) setShowMarkDone(false); }}>
-//           <div className="modal-box" style={{ textAlign: "center", padding: "48px 32px" }}>
-//             <div style={{ fontSize: 64, marginBottom: 24, color: "var(--color-success)" }}><Icons.Check /></div>
-//             <div style={{ fontWeight: 700, fontSize: 24, color: "var(--color-text)", marginBottom: 12 }}>Resolve this Request?</div>
-//             <div style={{ display: "flex", gap: 16, marginTop: 32 }}>
-//               <button className="action-btn btn-success" style={{ flex: 1, justifyContent: "center", padding: "16px", fontSize: 16 }} onClick={() => changeStatus("done")}>Yes, Mark Done</button>
-//               <button className="action-btn btn-outline" style={{ padding: "16px 32px", fontSize: 16 }} onClick={() => setShowMarkDone(false)}>Cancel</button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 "use client";
 
@@ -1240,21 +10,26 @@ import {
   adminGetRequestsAction, adminGetChatAction, adminSendMessageAction, adminUpdateReqStatusAction,
   adminAssignReqAction, adminCreateNewChatAction, adminSearchUsersAction, adminGetTeamAction,
   adminUpdateUserRoleAction, adminGetPostsAction, adminCreatePostAction, adminDeletePostAction,
-  adminDeleteRequestsAction, getAdminProfileAction, adminUpdateDeliveryStatusAction
+  adminDeleteRequestsAction, getAdminProfileAction, adminUpdateDeliveryStatusAction,
+  adminAssignDeliveryBoyAction
 } from "@/app/actions/admin";
 import { useAuth } from "@/components/AuthProvider";
+import CertificateGenerator from "@/components/admin/CertificateGenerator";
 
 // ════════════════════════════════════════════════════════════════════════════════
 // TYPES
 // ════════════════════════════════════════════════════════════════════════════════
 type UserRole = "user" | "co_admin" | "main_admin";
 type RequestStatus = "pending" | "seen" | "processing" | "payment_pending" | "done" | "cancelled";
-type MessageType = "text" | "doc" | "payment" | "voice";
+type MessageType = "text" | "doc" | "payment" | "voice" | "form";
 
 interface DbUser { id: string; mobile: string; name: string | null; role: UserRole; position_label: string | null; active: boolean; wallet_balance: number; }
 interface DbRequest {
   id: string; user_id: string; service: string; title: string; description: string | null; status: RequestStatus; priority: string; assigned_to: string | null; payment_status: "na" | "pending" | "paid"; payment_amount: number; delivery_type?: 'pickup' | 'delivery'; urgency?: 'instant' | 'today' | '2_days' | 'flexible';
   delivery_status?: 'na' | 'pending' | 'out_for_delivery' | 'delivered'; address?: DbAddress; created_at: string; updated_at: string; users?: DbUser; assignee?: DbUser;
+  request_messages?: DbMessage[]; // ✨ ADD ONLY THIS LINE
+  _unread?: boolean; // ✨ ADD THIS FLAG
+  delivery_boy_id?: string | null; // ✨ ADD THIS
 }
 interface DbMessage { id: string; request_id: string; sender_id: string; sender_role: UserRole; message_type: MessageType; content: string | null; doc_name: string | null; doc_url: string | null; doc_size: string | null; is_result_doc: boolean; payment_amount: number | null; payment_status?: string; reply_to_id: string | null; created_at: string; users?: DbUser; reply_to_msg?: DbMessage; }
 interface DbDocument { id: string; request_id: string; file_name: string; file_size: string; file_type: string; is_sensitive: boolean; is_result: boolean; created_at: string; file_url: string; }
@@ -1501,11 +276,12 @@ const STATUS_CFG = {
 } as const;
 
 const NAV_LINKS = [
-  { href: "/dashboard", icon: "▣", label: "Dashboard" },
-  { href: "/admin/posts", icon: "✏", label: "Posts" },
-  { href: "/admin/galary", icon: "🖼", label: "Gallery" },
-  { href: "/admin/transactions", icon: "₹", label: "Transactions" },
-  { href: "/admin/analytics", icon: "↗", label: "Analytics" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin" : "http://localhost:3000/admin", icon: "👮", label: "Admin" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/posts" : "http://localhost:3000/admin/posts", icon: "✏️", label: "Posts" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/galary" : "http://localhost:3000/admin/galary", icon: "🖼️", label: "Gallery" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/forms" : "http://localhost:3000/admin/forms", icon: "📋", label: "Forms" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/transactions" : "http://localhost:3000/admin/transactions", icon: "💳", label: "Transactions" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/analytics" : "http://localhost:3000/admin/analytics", icon: "📊", label: "Analytics" },
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1660,7 +436,7 @@ select.inp option{background:${T.modalBg};color:${T.inputText};}
 .sec-hdr-txt{font-size:.75rem;font-weight:800;color:${T.sectionGradText};text-transform:uppercase;letter-spacing:.07em;}
 
 /* ── BUBBLE ── */
-.bubble{max-width:68%;padding:10px 13px;border-radius:13px;position:relative;animation:bub .2s ease;}
+.bubble{max-width:80%; min-width:80%; padding:10px 13px;border-radius:13px;position:relative;animation:bub .2s ease;}
 .b-admin{background:${T.bubbleAdminBg};border:1px solid ${T.bubbleAdminBorder};color:${T.bubbleAdminText};border-radius:13px 13px 3px 13px;}
 .b-user{background:${T.bubbleUserBg};border:1px solid ${T.bubbleUserBorder};color:${T.bubbleUserText};border-radius:13px 13px 13px 3px;}
 
@@ -1744,6 +520,12 @@ export default function CSCAdminPanel() {
 
   // ✨ Delivery State
   const [activeDeliveryReqId, setActiveDeliveryReqId] = useState<string | null>(null);
+  // Add this near your other states (around line 190)
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [certUser, setCertUser] = useState<DbUser | null>(null);
+
+  // 2. Add this state near your other modals (around line 200)
+  const [showDeliverySearch, setShowDeliverySearch] = useState(false);
 
   // ✨ ACTIVATE GPS BROADCASTER WHEN A DELIVERY STARTS
   useDeliveryBroadcaster(activeDeliveryReqId || "", !!activeDeliveryReqId);
@@ -1783,6 +565,15 @@ export default function CSCAdminPanel() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const isMainAdmin = currentUser?.role === "main_admin";
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // ✨ FIX 1: Track unread IDs safely so the DB refresh doesn't wipe them out
+  const [unreadIds, setUnreadIds] = useState<string[]>([]);
+
+  // Create a ref for selectedReq so the background socket always knows what you are looking at
+  const selectedReqRef = useRef<DbRequest | null>(null);
+  useEffect(() => { selectedReqRef.current = selectedReq; }, [selectedReq]);
+
   const { user, isLoggedIn, logout, loading: authLoading } = useAuth();
 
 
@@ -1793,6 +584,14 @@ export default function CSCAdminPanel() {
       catch (e) { console.error(e); }
     })();
   }, []);
+
+  useEffect(() => {
+    // Pre-load the audio so the browser trusts it
+    if (typeof window !== "undefined") {
+      audioRef.current = new Audio('/notify.mp3');
+    }
+  }, []);
+
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("csc_theme");
@@ -1831,7 +630,10 @@ export default function CSCAdminPanel() {
       } catch (e) { console.error(e); }
     })();
     const handleNew = (m: DbMessage) => {
-      setMessages(p => { if (p.some(x => x.id === m.id)) return p; const rep = m.reply_to_id ? p.find(o => o.id === m.reply_to_id) : undefined; return [...p, { ...m, reply_to_msg: rep }]; });
+      setMessages(p => {
+        // ✨ FIX 2: Security check! Ignore messages that belong to a different chat room
+        if (m.request_id !== selectedReq.id) return p; if (p.some(x => x.id === m.id)) return p; const rep = m.reply_to_id ? p.find(o => o.id === m.reply_to_id) : undefined; return [...p, { ...m, reply_to_msg: rep }];
+      });
     };
     socket.on("new_message", handleNew);
     return () => { socket.off("new_message", handleNew); };
@@ -1840,7 +642,8 @@ export default function CSCAdminPanel() {
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sidePanel]);
 
   useEffect(() => {
-    if (activeTab === "team") adminGetTeamAction().then(r => setTeamMembers(r as unknown as DbUser[])).catch(console.error);
+    //if (activeTab === "team") 
+    adminGetTeamAction().then(r => setTeamMembers(r as unknown as DbUser[])).catch(console.error);
   }, [activeTab]);
 
   useEffect(() => {
@@ -1855,6 +658,73 @@ export default function CSCAdminPanel() {
     return () => { socket.off(`logout_command_${currentUser.id}`, h); };
   }, [socket, currentUser]);
 
+  // ✨ REAL-TIME DESKTOP NOTIFICATIONS (SOCKET.IO)
+  useEffect(() => {
+    if (!currentUser || !socket) return;
+
+    const handleNewAlert = (newMsg: any) => {
+      // Only notify if the sender is NOT the admin
+      if (newMsg.sender_id !== currentUser.id) {
+
+        // 1. Play sound safely using the pre-loaded ref
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0; // Reset to start
+          audioRef.current.play().catch(err => console.log("Audio blocked. Click 'Enable Alerts'.", err));
+        }
+
+        // 2. Show Desktop Popup (Best practice: Only show if they are on another tab!)
+        if (Notification.permission === "granted") {
+          // ✨ FIX: Dynamically pull the user's name from the socket payload
+          const senderName = newMsg.users?.name || "Citizen";
+
+          const notif = new Notification(`New Message from ${senderName}`, {
+            body: newMsg.content || "📎 Sent a new attachment or form",
+            icon: "/favicon.ico"
+          });
+
+          // Clicking the notification brings the Admin back to the tab!
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+          };
+        }
+
+        // 3. INSTANT PREVIEW INJECTION
+        setRequests((prev: DbRequest[]) => {
+          const updated = prev.map(req => {
+            if (req.id === newMsg.request_id) {
+              const existingMsgs = req.request_messages || [];
+
+              // ✨ If Admin is actively staring at this exact chat, DO NOT mark it as unread!
+              const isCurrentlyViewing = selectedReq?.id === req.id && !document.hidden;
+
+              return {
+                ...req,
+                updated_at: newMsg.created_at,
+                request_messages: [...existingMsgs, newMsg],
+                _unread: !isCurrentlyViewing // ✨ Marks it green ONLY if you are looking away
+              };
+            }
+            return req;
+          });
+          return updated.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+        });
+
+        // ✨ FIX 1: Safely track the unread dot
+        if (selectedReqRef.current?.id !== newMsg.request_id) {
+          setUnreadIds(prev => prev.includes(newMsg.request_id) ? prev : [...prev, newMsg.request_id]);
+        }
+
+        fetchQueue();
+      }
+    };
+
+    socket.on("global_message_alert", handleNewAlert);
+    return () => { socket.off("global_message_alert", handleNewAlert); };
+  }, [currentUser, socket, fetchQueue]);
+
+
+
   // ── Actions ───────────────────────────────────────────────────────────────
   const updateRole = async (uid: string, role: UserRole) => { try { await adminUpdateUserRoleAction(uid, role); setTeamMembers(p => p.map(u => u.id === uid ? { ...u, role } : u)); socket?.emit("force_logout_user", uid); } catch (e: unknown) { alert("Failed: " + (e as Error).message); } };
   const removeCoAdmin = async (uid: string) => { if (!confirm("Revoke admin access?")) return; try { await adminUpdateUserRoleAction(uid, "user"); setTeamMembers(p => p.filter(u => u.id !== uid)); socket?.emit("force_logout_user", uid); } catch (e: unknown) { alert("Failed: " + (e as Error).message); } };
@@ -1865,6 +735,19 @@ export default function CSCAdminPanel() {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files) setPendingFiles(p => [...p, ...Array.from(e.dataTransfer.files)]); };
   const dlFile = async (url: string, filename: string) => { try { const r = await fetch(url); const b = await r.blob(); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); } catch { window.open(url, "_blank"); } };
   const startNewChat = async (u: DbUser) => { setIsCreatingChat(true); try { const d = await adminCreateNewChatAction(u.id); setShowNewChat(false); setUserSearchQ(""); setActiveTab("requests"); setRequests(p => [d as unknown as DbRequest, ...p]); setSelectedReq(d as unknown as DbRequest); } catch (e: unknown) { alert((e as Error).message); } finally { setIsCreatingChat(false); } };
+
+  const assignDeliveryAgent = async (u: DbUser) => {
+    if (!selectedReq) return;
+    try {
+      await adminAssignDeliveryBoyAction(selectedReq.id, u.id);
+      const updatedReq = { ...selectedReq, delivery_boy_id: u.id, delivery_status: "pending" as any };
+      setSelectedReq(updatedReq);
+      setRequests(prev => prev.map(r => r.id === selectedReq.id ? updatedReq : r));
+      setShowDeliverySearch(false);
+      alert(`✅ Assigned to ${u.name}`);
+      socket?.emit("trigger_queue_refresh");
+    } catch (e: any) { alert(e.message); }
+  };
 
   // ─── HANDLERS ─── (Preserved Exactly)
   const toggleTheme = () => {
@@ -1945,12 +828,12 @@ export default function CSCAdminPanel() {
         {/* Row 1 — brand + nav links + toggle + user */}
         <div style={{ display: "flex", alignItems: "center", height: 54, padding: "0 20px", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
 
-          {/* Brand — PostClient style "ShrilalCSC" */}
+          {/* Brand — PostClient style "SrilalCSC" */}
           <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
             <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
             <div>
               <div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
-                Shrilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+                Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
               </div>
               <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em" }}>ADMIN PANEL</div>
             </div>
@@ -1977,6 +860,23 @@ export default function CSCAdminPanel() {
               </a>
             ))}
           </nav>
+
+          {/* ✨ UNLOCKS BROWSER SOUND & NOTIFICATIONS */}
+          {typeof window !== 'undefined' && Notification.permission !== "granted" && (
+            <button
+              onClick={() => {
+                Notification.requestPermission().then(perm => {
+                  if (perm === "granted") {
+                    new Audio('/notify.mp3').play().catch(() => { }); // Unblocks browser audio policy
+                    alert("✅ Notifications & Sounds Enabled!");
+                  }
+                });
+              }}
+              style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid #10b981", color: "#10b981", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            >
+              🔕 Enable Alerts
+            </button>
+          )}
 
           {/* Theme toggle */}
           <button className="tog" onClick={toggleTheme}>
@@ -2043,9 +943,23 @@ export default function CSCAdminPanel() {
                 ) : requests.map(req => {
                   const cfg = STATUS_CFG[req.status] || STATUS_CFG.pending;
                   const isActive = selectedReq?.id === req.id;
+
+                  // ✨ WhatsApp Logic
+                  const lastMsg = req.request_messages?.[req.request_messages.length - 1];
+                  // ✨ FIX 1: Read from our safe unreadIds array!
+                  const isUnreadActual = (unreadIds.includes(req.id) || req.status === "pending") && !isActive;
+
+                  let previewText = "No messages yet";
+                  if (lastMsg) {
+                    if (lastMsg.message_type === "text") previewText = lastMsg.content || "";
+                    else if (lastMsg.message_type === "form") previewText = "📝 Form Submitted";
+                    else if (lastMsg.message_type === "payment") previewText = "💳 Payment Request";
+                    else if (lastMsg.doc_url) previewText = "📎 Document Attached";
+                  }
+
                   return (
                     <div key={req.id} className={`chat-row ${isActive ? "active" : ""}`}
-                      onClick={() => { if (isSelectMode) setSelectedReqIds(p => p.includes(req.id) ? p.filter(i => i !== req.id) : [...p, req.id]); else setSelectedReq(req); }}>
+                      onClick={() => { if (isSelectMode) setSelectedReqIds(p => p.includes(req.id) ? p.filter(i => i !== req.id) : [...p, req.id]); else { setSelectedReq(req); setUnreadIds(prev => prev.filter(id => id !== req.id)); } }}>
                       {isSelectMode && <input type="checkbox" readOnly checked={selectedReqIds.includes(req.id)} style={{ accentColor: "#ef4444", flexShrink: 0 }} />}
                       <div style={{ position: "relative", flexShrink: 0 }}>
                         <Avatar name={req.users?.name} size={42} role="user" isDark={isDark} />
@@ -2054,11 +968,33 @@ export default function CSCAdminPanel() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                           <span style={{ fontWeight: 700, fontSize: 14, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{req.users?.name || "Citizen"}</span>
-                          <span style={{ fontSize: 11, color: T.textMuted, flexShrink: 0, marginLeft: 8 }}>{fmtTime(req.updated_at)}</span>
-                        </div>
+                          {/* ✨ Time of Last Message */}
+                          <span style={{ fontSize: 11, color: isUnreadActual ? "#10b981" : T.textMuted, fontWeight: isUnreadActual ? 700 : 500, flexShrink: 0, marginLeft: 8 }}>
+                            {lastMsg ? fmtTime(lastMsg.created_at) : fmtTime(req.updated_at)}
+                          </span>                        </div>
                         <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           <span style={{ color: T.accent, fontWeight: 700 }}>{req.service}</span>
                           <span style={{ margin: "0 4px", opacity: .4 }}>·</span>{req.title}
+                        </div>
+                        {/* ✨ WhatsApp-Style Last Message Preview */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{
+                            fontSize: 13,
+                            color: isUnreadActual ? T.textPrimary : T.textMuted,
+                            fontWeight: isUnreadActual ? 600 : 400,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            flex: 1,
+                            paddingRight: 10
+                          }}>
+                            {previewText}
+                          </div>
+
+                          {/* ✨ Green Unread Dot */}
+                          {isUnreadActual && (
+                            <div style={{ width: 10, height: 10, background: "#10b981", borderRadius: "50%", flexShrink: 0, boxShadow: "0 0 8px rgba(16, 185, 129, 0.4)" }} />
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2146,20 +1082,86 @@ export default function CSCAdminPanel() {
 
                                 {/* Payment */}
                                 {msg.message_type === "payment" && (
-                                  <div style={{ minWidth: 230, background: msg.payment_status === "paid" ? T.payPaidGrad : T.payPendingGrad, borderRadius: 11, padding: "16px 18px", margin: "-10px -13px", color: "#fff", position: "relative", overflow: "hidden" }}>
+                                  <div style={{ width: "100%", boxSizing: "border-box", background: msg.payment_status === "paid" ? T.payPaidGrad : T.payPendingGrad, borderRadius: 8, padding: "14px", color: "#fff", position: "relative", overflow: "hidden", marginTop: 4 }}>
                                     <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
+
                                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                                      <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                      <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                         {msg.payment_status === "paid" ? <Ico.Check /> : <Ico.Pay />}
                                       </div>
-                                      <div>
-                                        <div style={{ fontSize: 11, opacity: .75, fontWeight: 600 }}>{msg.payment_status === "paid" ? "Payment Received" : "Payment Requested"}</div>
-                                        <div className="mono" style={{ fontSize: 22, fontWeight: 800 }}>{fmtCurrency(msg.payment_amount || 0)}</div>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 10, opacity: 0.9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                          {msg.payment_status === "paid" ? "Payment Received" : "Payment Requested"}
+                                        </div>
+                                        <div className="mono" style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.1, marginTop: 2 }}>
+                                          {fmtCurrency(msg.payment_amount || 0)}
+                                        </div>
                                       </div>
                                     </div>
-                                    {msg.payment_status === "paid"
-                                      ? <div style={{ fontSize: 11, background: "rgba(255,255,255,0.18)", padding: "4px 10px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 700 }}>✅ Verified · Razorpay</div>
-                                      : <div style={{ fontSize: 12, opacity: .85 }}>Awaiting payment from citizen</div>}
+
+                                    {msg.payment_status === "paid" ? (
+                                      <div style={{ fontSize: 11, background: "rgba(255,255,255,0.18)", padding: "6px 10px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 700 }}>✅ Verified · Razorpay</div>
+                                    ) : (
+                                      <div style={{ fontSize: 12, opacity: .85 }}>Awaiting payment from user</div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* ✨ ADMIN FORM BUBBLE WITH 1-CLICK COPY */}
+                                {msg.message_type === "form" && (
+                                  <div style={{ minWidth: 280, background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc", border: `1px solid ${T.accentBorder}`, borderRadius: 11, padding: "16px", margin: "4px 0", width: "100%", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                                    <div style={{ display: "flex", gap: 10, alignItems: "center", borderBottom: `1px dashed ${T.divider}`, paddingBottom: 12, marginBottom: 16 }}>
+                                      <div style={{ background: T.accentLight, padding: "8px 10px", borderRadius: 8, fontSize: 18 }}>📝</div>
+                                      <div style={{ flex: 1 }}>
+                                        {/* ✨ Now it pulls the title from the joined forms table */}
+                                        <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>{(msg as any).forms?.title || (msg as any).form_title || "User Form Submission"}</div>                                        <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ready to Process</div>
+                                      </div>
+                                    </div>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                      {(msg as any).form_data && Object.entries((msg as any).form_data).map(([key, val]) => (
+                                        <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                                            <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>{key}</div>
+
+                                            {/* ✨ 1-Click Copy Button with Toast Effect */}
+                                            <button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(String(val));
+                                                const uniqueId = msg.id + key;
+                                                setCopiedId(uniqueId);
+                                                setTimeout(() => setCopiedId(null), 2000); // Resets after 2s
+                                              }}
+                                              style={{
+                                                background: copiedId === (msg.id + key) ? T.btnSuccessBg : T.accentLight,
+                                                border: `1px solid ${copiedId === (msg.id + key) ? "transparent" : T.accentBorder}`,
+                                                color: copiedId === (msg.id + key) ? "#fff" : T.accent,
+                                                fontSize: 10, fontWeight: 800, cursor: "pointer", padding: "3px 8px", borderRadius: 4, transition: "all 0.2s"
+                                              }}
+                                              onMouseEnter={e => { if (copiedId !== (msg.id + key)) e.currentTarget.style.background = T.accentBorder }}
+                                              onMouseLeave={e => { if (copiedId !== (msg.id + key)) e.currentTarget.style.background = T.accentLight }}
+                                            >
+                                              {copiedId === (msg.id + key) ? "✅ Copied" : "📋 Copy"}
+                                            </button>
+                                          </div>
+                                          <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600, background: isDark ? "rgba(0,0,0,0.2)" : "#fff", padding: "8px 12px", borderRadius: 6, border: `1px solid ${T.inputBorder}`, userSelect: "all" }}>
+                                            {String(val)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {/* Document Attachment */}
+                                    {msg.doc_url && (
+                                      <div onClick={() => dlFile(msg.doc_url!, msg.doc_name || "document")} style={{ marginTop: 16, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.borderColor = T.accent} onMouseLeave={e => e.currentTarget.style.borderColor = T.inputBorder}>
+                                        <span style={{ fontSize: 18 }}>📎</span>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.doc_name}</div>
+                                          <div style={{ fontSize: 11, color: T.textMuted }}>{msg.doc_size}</div>
+                                        </div>
+                                        <span style={{ fontSize: 18, color: T.textMuted }}>⬇</span>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
@@ -2318,40 +1320,56 @@ export default function CSCAdminPanel() {
                               </span>
                             </div>
 
-                            {/* Delivery Actions */}
-                            <div style={{ marginTop: 10 }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, marginBottom: 10, textTransform: "uppercase" }}>Actions</div>
-
-                              {selectedReq.delivery_status === 'pending' && (
-                                <button onClick={() => handleDeliveryUpdate('out_for_delivery')} className="btn btn-p" style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: 15 }}>
-                                  🛵 Start Live Delivery
+                            {/* ✨ NEW: Assignment Section */}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.divider}`, paddingBottom: 16 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Assigned Agent</span>
+                              {selectedReq.delivery_boy_id ? (
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>Assigned ✅</span>
+                                  <button onClick={() => setShowDeliverySearch(true)} className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }}>Re-assign</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => { setUserSearchQ(""); setShowDeliverySearch(true); }} className="btn btn-p" style={{ padding: "6px 12px", fontSize: 12 }}>
+                                  Assign Agent
                                 </button>
                               )}
-
-                              {selectedReq.delivery_status === 'out_for_delivery' && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                  <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: 14, borderRadius: 10, color: "#10b981", fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}>
-                                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", animation: "pulse 1.5s infinite" }}></span>
-                                    Broadcasting Live GPS Location...
-                                  </div>
-                                  <div style={{ display: "flex", gap: 10 }}>
-                                    <button onClick={() => handleDeliveryUpdate('pending')} className="btn btn-g" style={{ flex: 1, justifyContent: "center" }}>
-                                      🛑 Stop Tracking
-                                    </button>
-                                    <button onClick={() => handleDeliveryUpdate('delivered')} className="btn btn-s" style={{ flex: 2, justifyContent: "center" }}>
-                                      ✅ Mark Delivered
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {selectedReq.delivery_status === 'delivered' && (
-                                <div style={{ textAlign: "center", padding: "20px", color: "#15803d", background: T.btnSuccessBg, borderRadius: 10, fontWeight: 700 }}>
-                                  🎉 Successfully Delivered
-                                </div>
-                              )}
-
                             </div>
+
+                            {/* Delivery Actions (Hide if no agent assigned) */}
+                            {selectedReq.delivery_boy_id && (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, marginBottom: 10, textTransform: "uppercase" }}>Actions</div>
+
+                                {selectedReq.delivery_status === 'pending' && (
+                                  <button onClick={() => handleDeliveryUpdate('out_for_delivery')} className="btn btn-p" style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: 15 }}>
+                                    🛵 Start Live Delivery
+                                  </button>
+                                )}
+
+                                {selectedReq.delivery_status === 'out_for_delivery' && (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: 14, borderRadius: 10, color: "#10b981", fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}>
+                                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", animation: "pulse 1.5s infinite" }}></span>
+                                      Broadcasting Live GPS Location...
+                                    </div>
+                                    <div style={{ display: "flex", gap: 10 }}>
+                                      <button onClick={() => handleDeliveryUpdate('pending')} className="btn btn-g" style={{ flex: 1, justifyContent: "center" }}>
+                                        🛑 Stop Tracking
+                                      </button>
+                                      <button onClick={() => handleDeliveryUpdate('delivered')} className="btn btn-s" style={{ flex: 2, justifyContent: "center" }}>
+                                        ✅ Mark Delivered
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {selectedReq.delivery_status === 'delivered' && (
+                                  <div style={{ textAlign: "center", padding: "20px", color: "#15803d", background: T.btnSuccessBg, borderRadius: 10, fontWeight: 700 }}>
+                                    🎉 Successfully Delivered
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2405,6 +1423,14 @@ export default function CSCAdminPanel() {
                       <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 16, padding: "8px 12px", background: T.inputBg, borderRadius: 7, border: `1px solid ${T.inputBorder}` }}>
                         <span className="mono">{user.mobile}</span>
                       </div>
+                      {/* ✨ ADD THIS CERTIFICATE BUTTON */}
+                      <button
+                        className="btn btn-g"
+                        style={{ width: "100%", justifyContent: "center", marginBottom: isMainAdmin && user.id !== currentUser?.id ? 10 : 0 }}
+                        onClick={() => setCertUser(user)}
+                      >
+                        🎓 Issue Certificate
+                      </button>
                       {isMainAdmin && user.id !== currentUser?.id && (
                         <div style={{ display: "flex", gap: 8 }}>
                           <select className="inp" style={{ flex: 1, padding: "8px 11px", fontSize: 13 }} value={user.role} onChange={e => updateRole(user.id, e.target.value as UserRole)}>
@@ -2422,6 +1448,23 @@ export default function CSCAdminPanel() {
           </div>
         )}
       </div>
+
+      {/* ════════════════════════════════════════════════════════
+          CERTIFICATE GENERATOR MODAL
+      ════════════════════════════════════════════════════════ */}
+      {certUser && (
+        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setCertUser(null); }}>
+          <div className="modal-bx" style={{ maxWidth: 500, padding: 0, overflow: "hidden", background: T.modalBg }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: T.textPrimary }}>🎓 Certificate Center</div>
+              <button onClick={() => setCertUser(null)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
+            </div>
+            <div style={{ padding: 20 }}>
+              {/* Renders the tool targeting the selected user */}
+              <CertificateGenerator targetUserId={certUser.id} targetUserName={certUser.name || "Student"} isDark={isDark} />            </div>
+          </div>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════
           MODALS
@@ -2454,6 +1497,69 @@ export default function CSCAdminPanel() {
                   </div>
                 ))}
                 {dUserSearch.length > 2 && !userSearchResults.length && <div style={{ padding: 22, textAlign: "center", color: T.textMuted, fontSize: 13 }}>No users found.</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Agent Search Modal */}
+      {showDeliverySearch && (
+        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowDeliverySearch(false); }}>
+          <div className="modal-bx" style={{ maxWidth: 460 }}>
+            <div style={modalHdrStyle}>
+              <div style={modalHdrTitle}>🛵 Assign Delivery Agent</div>
+              <button onClick={() => setShowDeliverySearch(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
+            </div>
+
+            <div style={{ padding: "18px 22px" }}>
+              <div style={{ position: "relative", marginBottom: 14 }}>
+                <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
+                <input value={userSearchQ} onChange={e => setUserSearchQ(e.target.value)} placeholder="Search agent by name or mobile…" className="inp" style={{ paddingLeft: 33 }} autoFocus />
+              </div>
+
+              <div style={{ maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
+                {(() => {
+                  // ✨ Determine which list to show based on search input
+                  const displayUsers = userSearchQ.length > 2
+                    ? userSearchResults
+                    : teamMembers.filter(u => !userSearchQ || u.name?.toLowerCase().includes(userSearchQ.toLowerCase()) || u.mobile?.includes(userSearchQ));
+
+                  // ✨ "Not Found" State
+                  if (displayUsers.length === 0) {
+                    return (
+                      <div style={{ padding: "30px 20px", textAlign: "center", color: T.textMuted }}>
+                        <div style={{ fontSize: 32, marginBottom: 10 }}>🔍</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>No users found</div>
+                        <div style={{ fontSize: 13, marginTop: 4 }}>We couldn't find anyone matching "{userSearchQ}"</div>
+                      </div>
+                    );
+                  }
+
+                  // ✨ Render User List with Roles
+                  return displayUsers.map(u => (
+                    <div key={u.id} onClick={() => assignDeliveryAgent(u)}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 9, cursor: "pointer", transition: "all .15s", marginBottom: 6, border: `1px solid ${T.divider}` }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.accentLight; (e.currentTarget as HTMLElement).style.borderColor = T.accentBorder; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.borderColor = T.divider; }}>
+
+                      <Avatar name={u.name} size={42} role={u.role} isDark={isDark} />
+
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{u.name || "Unknown User"}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                          <div className="mono" style={{ fontSize: 11, color: T.textSecondary }}>{u.mobile || "No Mobile"}</div>
+
+                          {/* ✨ Show Exact Roles clearly */}
+                          <div className="mono" style={{ fontSize: 9, fontWeight: 800, letterSpacing: ".05em", color: u.role === "main_admin" ? T.accent : u.role === "co_admin" ? "#2563eb" : T.textMuted }}>
+                            {u.role === "main_admin" ? "🏛️ MAIN ADMIN" : u.role === "co_admin" ? "🛡️ CO-ADMIN" : "👤 CITIZEN"}
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           </div>

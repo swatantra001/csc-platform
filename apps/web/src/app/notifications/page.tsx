@@ -289,11 +289,13 @@ type ThemeTokens = typeof THEMES.light;
 // NAV LINKS (User Specified)
 // ════════════════════════════════════════════════════════════════════════════════
 const NAV_LINKS = [
-  { href: "/status",            icon: "🌐", label: "Status"        },
-  { href: "/posts",      icon: "✏️", label: "Posts"        },
-  { href: "/galary",          icon: "🖼️", label: "Gallery"      },
-  { href: "/dashboard",icon: "📊", label: "Dashboard" },
-  { href: "/dashboard/profile",icon: "👤", label: "Profile"      },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard" : "http://localhost:3000/dashboard", icon: "📱", label: "Dashboard" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/posts" : "http://localhost:3000/posts", icon: "✏️", label: "Posts" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/galary" : "http://localhost:3000/galary", icon: "🖼️", label: "Gallery" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/notifications" : "http://localhost:3000/notifications", icon: "🔔", label: "Notifications" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard/profile" : "http://localhost:3000/dashboard/profile", icon: "👤", label: "Profile" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/status" : "http://localhost:3000/status", icon: "📊", label: "Status" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/delivery" : "http://localhost:3000/delivery", icon: "📦", label: "Delivery" },
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -616,7 +618,7 @@ export default function NotificationCenter() {
             <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
             <div>
               <div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
-                Shrilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+                Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
               </div>
               <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em" }}>NOTIFICATIONS</div>
             </div>

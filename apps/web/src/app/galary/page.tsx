@@ -1,246 +1,3 @@
-// "use client";
-
-// import { useState, useEffect } from "react";
-// import { motion, AnimatePresence } from "framer-motion";
-// import { getGalleryImagesAction } from "@/app/actions/admin";
-// import Link from "next/link";
-
-// export default function PublicGallery() {
-//   const [images, setImages] = useState<any[]>([]);
-//   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-
-//   // ─── 1. FETCH IMAGES ───
-//   useEffect(() => {
-//     const fetch = async () => {
-//       try {
-//         const data = await getGalleryImagesAction();
-//         setImages(data);
-//       } catch (err) {
-//         console.error(err);
-//       }
-//     };
-//     fetch();
-//   }, []);
-
-//   // ─── 2. AUTO-SLIDE LOGIC (Only runs when Pop-up is open) ───
-//   useEffect(() => {
-//     if (selectedIndex === null || images.length <= 1) return;
-    
-//     const timer = setInterval(() => {
-//       setSelectedIndex((prev) => (prev! + 1) % images.length);
-//     }, 4000); // Slides every 4 seconds
-
-//     return () => clearInterval(timer);
-//   }, [selectedIndex, images.length]);
-
-//   // ─── 3. KEYBOARD CONTROLS ───
-//   useEffect(() => {
-//     const handleKeyDown = (e: KeyboardEvent) => {
-//       if (selectedIndex === null) return;
-      
-//       if (e.key === "Escape") {
-//         setSelectedIndex(null); // Close on Esc
-//       } else if (e.key === "ArrowRight") {
-//         setSelectedIndex((prev) => (prev! + 1) % images.length); // Next
-//       } else if (e.key === "ArrowLeft") {
-//         setSelectedIndex((prev) => (prev! - 1 + images.length) % images.length); // Prev
-//       }
-//     };
-
-//     window.addEventListener("keydown", handleKeyDown);
-//     return () => window.removeEventListener("keydown", handleKeyDown);
-//   }, [selectedIndex, images.length]);
-
-//   if (images.length === 0) return (
-//     <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center font-bold text-slate-400">
-//       <span className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></span>
-//       Loading Gallery...
-//     </div>
-//   );
-
-//   return (
-//     <>
-//       <style>{`
-//         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap');
-//         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-//         body { font-family: 'DM Sans', sans-serif; background: #f1f5f9; color: #1e293b; line-height: 1.6; }
-
-//         /* ── TOP NAV & BREADCRUMB ── */
-//         .top-nav { background: #1e3a8a; padding: 10px 0; border-bottom: 3px solid #4338ca; }
-//         .nav-inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
-//         .nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.5rem; color: #fff; text-decoration: none; }
-//         .nav-logo span { color: #818cf8; }
-//         .breadcrumb { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 8px 0; font-size: 0.75rem; color: #64748b; }
-//         .breadcrumb-inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; gap: 6px; }
-//         .breadcrumb a { color: #4338ca; text-decoration: none; font-weight: 600; }
-
-//         /* ── HERO ── */
-//         .hero { background: linear-gradient(135deg, #1e3a8a 0%, #312e81 60%, #4338ca 100%); padding: 60px 0 80px; text-align: center; position: relative; }
-//         .hero::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='white' opacity='0.05'/%3E%3C/svg%3E") repeat; }
-//         .hero-title { font-family: 'DM Serif Display', serif; font-size: clamp(2rem, 4vw, 2.8rem); color: #fff; margin-bottom: 8px; position: relative; }
-//         .hero-desc { color: #c7d2fe; font-size: 1.05rem; position: relative; }
-
-//         /* ── MAIN GRID CARD ── */
-//         .page-body { max-width: 1100px; margin: -50px auto 60px; padding: 0 16px; position: relative; z-index: 10; }
-//         .gallery-card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-        
-//         .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-//         .grid-item { 
-//           aspect-ratio: 4/3; 
-//           border-radius: 12px; 
-//           overflow: hidden; 
-//           cursor: pointer; 
-//           position: relative; 
-//           border: 1px solid #e2e8f0;
-//           box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-//         }
-//         .grid-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-//         .grid-item:hover img { transform: scale(1.08); }
-//         .grid-item-overlay {
-//           position: absolute; inset: 0; background: linear-gradient(to top, rgba(15, 23, 42, 0.8), transparent);
-//           opacity: 0; transition: opacity 0.3s; display: flex; align-items: flex-end; padding: 12px;
-//         }
-//         .grid-item:hover .grid-item-overlay { opacity: 1; }
-//         .grid-item-title { color: #fff; font-size: 0.85rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-//         /* ── FULLSCREEN POP-UP (LIGHTBOX) ── */
-//         .lightbox-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-//         .lightbox-close { position: absolute; top: 24px; right: 24px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 44px; height: 44px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: all 0.2s; z-index: 1010; display: flex; align-items: center; justify-content: center; }
-//         .lightbox-close:hover { background: #ef4444; transform: scale(1.1); border-color: #ef4444; }
-
-//         .lightbox-content { position: relative; width: 100%; max-width: 1200px; height: 80vh; display: flex; align-items: center; justify-content: center; padding: 0 80px; }
-//         .lightbox-img-wrapper { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-//         .lightbox-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-        
-//         .lightbox-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 56px; height: 56px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: all 0.2s; z-index: 1010; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-//         .lightbox-btn:hover { background: #fff; color: #0f172a; transform: translateY(-50%) scale(1.1); }
-//         .btn-prev { left: 16px; }
-//         .btn-next { right: 16px; }
-
-//         .lightbox-caption { position: absolute; bottom: -60px; left: 0; right: 0; text-align: center; color: #fff; }
-//         .lightbox-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
-//         .lightbox-counter { font-size: 0.85rem; color: #94a3b8; font-weight: 600; letter-spacing: 1px; }
-
-//         .footer-bar { background: #1e3a8a; padding: 18px 0; text-align: center; color: rgba(255,255,255,0.5); font-size: 0.75rem; margin-top: auto; }
-//       `}</style>
-
-//       {/* TOP NAV */}
-//       <nav className="top-nav">
-//         <div className="nav-inner">
-//           <Link href="/" className="nav-logo">Shrilal<span>CSC</span></Link>
-//         </div>
-//       </nav>
-
-//       <div className="breadcrumb">
-//         <div className="breadcrumb-inner">
-//           <Link href="/">Home</Link> › <span>Work Portfolio</span>
-//         </div>
-//       </div>
-
-//       {/* HERO */}
-//       <div className="hero">
-//         <h1 className="hero-title">Work Portfolio</h1>
-//         <p className="hero-desc">A showcase of successful applications and services provided to our citizens.</p>
-//       </div>
-
-//       {/* MAIN GRID */}
-//       <div className="page-body">
-//         <div className="gallery-card">
-//           <div className="grid-container">
-//             {images.map((img, i) => (
-//               <div 
-//                 key={img.id} 
-//                 className="grid-item"
-//                 onClick={() => setSelectedIndex(i)}
-//               >
-//                 <img src={img.url} alt={img.title} loading="lazy" />
-//                 <div className="grid-item-overlay">
-//                   <span className="grid-item-title">{img.title}</span>
-//                 </div>
-//               </div>
-//             ))}
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* ─── FULLSCREEN LIGHTBOX POP-UP ─── */}
-//       <AnimatePresence>
-//         {selectedIndex !== null && (
-//           <motion.div 
-//             className="lightbox-backdrop"
-//             initial={{ opacity: 0 }}
-//             animate={{ opacity: 1 }}
-//             exit={{ opacity: 0 }}
-//           >
-//             <button className="lightbox-close" onClick={() => setSelectedIndex(null)} title="Close (Esc)">✕</button>
-
-//             <div className="lightbox-content">
-//               {/* Previous Button */}
-//               <button 
-//                 className="lightbox-btn btn-prev" 
-//                 onClick={() => setSelectedIndex((selectedIndex - 1 + images.length) % images.length)}
-//                 title="Previous (Left Arrow)"
-//               >
-//                 ❮
-//               </button>
-
-//               {/* Main Image with Crossfade */}
-//               <div className="lightbox-img-wrapper">
-//                 <AnimatePresence mode="wait">
-//                   <motion.img
-//                     key={images[selectedIndex].id}
-//                     src={images[selectedIndex].url}
-//                     alt={images[selectedIndex].title}
-//                     className="lightbox-img"
-//                     initial={{ opacity: 0, scale: 0.95 }}
-//                     animate={{ opacity: 1, scale: 1 }}
-//                     exit={{ opacity: 0, scale: 1.05 }}
-//                     transition={{ duration: 0.3 }}
-//                   />
-//                 </AnimatePresence>
-
-//                 {/* Caption positioned below the image */}
-//                 <div className="lightbox-caption">
-//                   <h3 className="lightbox-title">{images[selectedIndex].title}</h3>
-//                   <div className="lightbox-counter">
-//                     {selectedIndex + 1} / {images.length} · Auto-sliding
-//                   </div>
-//                 </div>
-//               </div>
-
-//               {/* Next Button */}
-//               <button 
-//                 className="lightbox-btn btn-next" 
-//                 onClick={() => setSelectedIndex((selectedIndex + 1) % images.length)}
-//                 title="Next (Right Arrow)"
-//               >
-//                 ❯
-//               </button>
-//             </div>
-//           </motion.div>
-//         )}
-//       </AnimatePresence>
-
-//       <div className="footer-bar">
-//         <p>© 2026 Shrilal CSC Center · Verified Portfolio</p>
-//       </div>
-//     </>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 "use client";
 
@@ -392,13 +149,14 @@ const Ico = {
   Image:    () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>,
 };
 
-// ─── NAV LINKS ───────────────────────────────────────────────────────────────
 const NAV_LINKS = [
-  { href: "http://localhost:3000/admin", label: "Admin", icon: "🏛️" },
-  { href: "http://localhost:3000/admin/posts", label: "Posts", icon: "✏️" },
-  { href: "http://localhost:3000/admin/galary", label: "Gallery", icon: "🖼️" },
-  { href: "http://localhost:3000/admin/transactions", label: "Transactions", icon: "₹" },
-  { href: "http://localhost:3000/dashboard/profile", label: "Profile", icon: "👤" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard" : "http://localhost:3000/dashboard", icon: "📱", label: "Dashboard" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/posts" : "http://localhost:3000/posts", icon: "✏️", label: "Posts" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/galary" : "http://localhost:3000/galary", icon: "🖼️", label: "Gallery" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/notifications" : "http://localhost:3000/notifications", icon: "🔔", label: "Notifications" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard/profile" : "http://localhost:3000/dashboard/profile", icon: "👤", label: "Profile" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/status" : "http://localhost:3000/status", icon: "📊", label: "Status" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/delivery" : "http://localhost:3000/delivery", icon: "📦", label: "Delivery" },
 ];
 
 // ─── CSS BUILDER ───────────────────────────────────────────────────────────────
@@ -568,7 +326,7 @@ export default function PublicGallery() {
             <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
             <div>
               <div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
-                Shrilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+                Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
               </div>
               <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em" }}>DIGITAL SEVA</div>
             </div>
@@ -723,7 +481,7 @@ export default function PublicGallery() {
           FOOTER
       ════════════════════════════════════════════════════════ */}
       <div className="footer-bar">
-        <p>© 2026 Shrilal CSC Center · Verified Portfolio</p>
+        <p>© 2026 Srilal CSC Center · Verified Portfolio</p>
       </div>
     </div>
   );

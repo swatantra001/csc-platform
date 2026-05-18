@@ -6,7 +6,7 @@ import { unstable_noStore as noStore } from "next/cache";
 // ─── DYNAMIC SEO METADATA ───
 export const metadata = {
   title: "Latest Jobs & Admissions | CSC Shambhuganj",
-  description: "Browse all the latest government jobs, scholarship forms, and admission updates verified by Shrilal Jan Seva Kendra.",
+  description: "Browse all the latest government jobs, scholarship forms, and admission updates verified by Srilal Jan Seva Kendra.",
 };
 
 export default async function PostsListPage() {

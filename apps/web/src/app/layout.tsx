@@ -5,17 +5,17 @@ import "./globals.css"; // <--- ✨ THIS IS THE MISSING MAGIC LINE ✨
 // ── Metadata ───────────────────────────────────────────────────────────────
 export const metadata: Metadata = {
   title: {
-    default: "श्रीलाल जन सेवा केंद्र, बक्सा | Shreelal Jan Seva Kendra, Shambhuganj — Jaunpur, UP",
-    template: "%s |Shreelal Jan Seva Kendra Shambhuganj",
+    default: "श्रीलाल जन सेवा केंद्र, बक्सा | Srilal Sahaj Jan Seva Kendra, Shambhuganj — Jaunpur, UP",
+    template: "%s |Srilal Sahaj Jan Seva Kendra Shambhuganj",
   },
   description:
     "Government-certified Common Service Centre in Shambhuganj, Jaunpur, Uttar Pradesh. Aadhaar, PAN, tickets, money transfer, scholarships and 30+ services.",
   keywords: [
-    "CSC Shambhuganj", "Shreelal Jan Seva Kendra Jaunpur", "Aadhaar center Jaunpur",
+    "CSC Shambhuganj", "Srilal Sahaj Jan Seva Kendra Jaunpur", "Aadhaar center Jaunpur",
     "PAN card Jaunpur", "Common Service Centre UP", "श्रीलाल जन सेवा केंद्र बक्सा",
   ],
-  authors: [{ name: "Shreelal Jan Seva Kendra, Shambhuganj" }],
-  creator: "Shreelal Jan Seva Kendra, Shambhuganj",
+  authors: [{ name: "Srilal Sahaj Jan Seva Kendra, Shambhuganj" }],
+  creator: "Srilal Sahaj Jan Seva Kendra, Shambhuganj",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || "https://csc-shambhuganj.vercel.app"
   ),
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "hi_IN",
     alternateLocale: "en_IN",
-    siteName: "Shreelal Jan Seva Kendra, Shambhuganj",
+    siteName: "Srilal Sahaj Jan Seva Kendra, Shambhuganj",
     title: "श्रीलाल जन सेवा केंद्र, शंभूगंज — Jaunpur UP",
     description: "30+ government & financial services. Aadhaar, PAN, tickets, money transfer.",
   },

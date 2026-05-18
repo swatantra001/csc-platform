@@ -1,24 +1,4 @@
-// import type { NextConfig } from "next";
 
-// const nextConfig: NextConfig = {
-//   /* config options here */
-// };
-
-// export default nextConfig;
-
-
-
-
-
-
-
-
-
-
-// ════════════════════════════════════════════════════════════════════
-// FILE 1: next.config.ts
-// apps/web/next.config.ts
-// ════════════════════════════════════════════════════════════════════
 import type { NextConfig } from "next";
  
 const nextConfig: NextConfig = {
@@ -61,7 +41,7 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options",           value: "DENY" },
           { key: "X-XSS-Protection",          value: "1; mode=block" },
           { key: "Referrer-Policy",           value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Permissions-Policy",        value: "camera=(), microphone=(), geolocation=(self *)" },
         ],
       },
       // Allow Razorpay iframe
@@ -111,6 +91,7 @@ const nextConfig: NextConfig = {
         "localhost:3000",
         process.env.NEXT_PUBLIC_APP_URL?.replace("https://", "") || "",
       ],
+      bodySizeLimit: '10mb', // ✨ Increases the limit to 10MB
     },
   },
 };

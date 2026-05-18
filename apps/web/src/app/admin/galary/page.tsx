@@ -1,193 +1,3 @@
-// "use client";
-
-// import { useState, useEffect } from "react";
-// import { uploadGalleryImageAction, deleteGalleryImageAction, getGalleryImagesAction } from "@/app/actions/admin";
-// import Link from "next/link";
-
-// export default function AdminGalleryPage() {
-//   const [images, setImages] = useState<any[]>([]);
-//   const [uploading, setUploading] = useState(false);
-
-//   useEffect(() => {
-//     fetchImages();
-//   }, []);
-
-//   async function fetchImages() {
-//     try {
-//       const data = await getGalleryImagesAction();
-//       setImages(data);
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   }
-
-//   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
-//     e.preventDefault();
-//     setUploading(true);
-//     try {
-//       const formData = new FormData(e.currentTarget);
-//       await uploadGalleryImageAction(formData);
-//       await fetchImages();
-//       (e.target as HTMLFormElement).reset();
-//     } catch (err) { 
-//       alert("Upload failed"); 
-//     } finally { 
-//       setUploading(false); 
-//     }
-//   };
-
-//   return (
-//     <div className="admin-gallery-override">
-//       <style>{`
-//         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap');
-
-//         .admin-gallery-override {
-//           margin: -24px; 
-//           background: #f1f5f9;
-//           min-height: 100vh;
-//           font-family: 'DM Sans', sans-serif;
-//           color: #1e293b;
-//           padding-bottom: 60px;
-//         }
-
-//         /* ── HERO ── */
-//         .hero {
-//           background: linear-gradient(135deg, #1e293b 0%, #312e81 60%, #4338ca 100%);
-//           padding: 60px 16px 80px;
-//           text-align: center;
-//           position: relative;
-//         }
-//         .hero::before {
-//           content: '';
-//           position: absolute;
-//           inset: 0;
-//           background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='1.5' fill='white' opacity='0.05'/%3E%3C/svg%3E") repeat;
-//         }
-//         .hero h1 { font-family: 'DM Serif Display', serif; color: #fff; font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 12px; position: relative; }
-//         .hero p { color: #cbd5e1; font-size: 1.1rem; position: relative; }
-
-//         /* ── CARD & FORM ── */
-//         .content-container { max-width: 1100px; margin: -40px auto 0; padding: 0 16px; position: relative; z-index: 10; }
-
-//         .card {
-//           background: #fff;
-//           border-radius: 12px;
-//           overflow: hidden;
-//           margin-bottom: 24px;
-//           border: 1px solid #e2e8f0;
-//           box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-//         }
-//         .section-header {
-//           background: linear-gradient(135deg, #4338ca 0%, #312e81 100%);
-//           padding: 12px 18px;
-//           display: flex;
-//           align-items: center;
-//           gap: 10px;
-//         }
-//         .section-title { font-size: 0.85rem; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.6px; }
-//         .card-body { padding: 20px; }
-
-//         .inp {
-//           width: 100%;
-//           border: 1px solid #e2e8f0;
-//           border-radius: 8px;
-//           padding: 10px 14px;
-//           font-size: 0.85rem;
-//           color: #1e293b;
-//           background: #f8fafc;
-//           transition: all 0.2s;
-//         }
-//         .inp:focus { outline: none; border-color: #4338ca; box-shadow: 0 0 0 3px rgba(67, 56, 202, 0.1); background: #fff; }
-//         .btn-primary { background: linear-gradient(to right, #4338ca, #312e81); color: #fff; font-weight: 700; padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer; transition: opacity 0.2s; }
-//         .btn-primary:hover { opacity: 0.9; }
-
-//         /* ── GRID ── */
-//         .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-//         .img-card { border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; background: #fff; position: relative; }
-//         .img-card img { width: 100%; height: 180px; object-fit: cover; }
-//         .img-card-footer { padding: 12px; display: flex; justify-content: space-between; align-items: center; }
-//         .img-title { font-size: 0.85rem; font-weight: 700; color: #1e293b; truncate; flex: 1; }
-//         .btn-delete { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-//         .btn-delete:hover { background: #ef4444; color: #fff; }
-//       `}</style>
-
-//       <div className="hero">
-//         <h1>Manage Work Gallery</h1>
-//         <p>Upload and organize photos of your successful applications and services.</p>
-//       </div>
-
-//       <div className="content-container">
-
-//         <div className="card">
-//           <div className="section-header">
-//             <span className="text-xl">📸</span>
-//             <h2 className="section-title">Upload New Photo</h2>
-//           </div>
-//           <div className="card-body">
-//             <form onSubmit={handleUpload} className="flex flex-wrap gap-4 items-end">
-//               <div className="flex-1 min-w-[200px]">
-//                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Image Title</label>
-//                 <input name="title" required className="inp" placeholder="e.g. Passport Applied Successfully" />
-//               </div>
-//               <div className="flex-1 min-w-[200px]">
-//                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Choose File</label>
-//                 <input name="file" type="file" required accept="image/*" className="inp bg-white" />
-//               </div>
-//               <button disabled={uploading} className="btn-primary">
-//                 {uploading ? "Uploading..." : "Upload Photo"}
-//               </button>
-//             </form>
-//           </div>
-//         </div>
-
-//         <div className="image-grid">
-//           {images.map(img => (
-//             <div key={img.id} className="img-card group shadow-sm hover:shadow-md transition">
-//               <img src={img.url} alt={img.title} />
-//               <div className="img-card-footer">
-//                 <span className="img-title truncate mr-2">{img.title}</span>
-//                 <button 
-//                   onClick={async () => { if(confirm('Delete this photo?')){ await deleteGalleryImageAction(img.id, img.url); fetchImages(); }}} 
-//                   className="btn-delete"
-//                 >
-//                   Delete
-//                 </button>
-//               </div>
-//             </div>
-//           ))}
-//         </div>
-
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 "use client";
 
@@ -340,11 +150,12 @@ const Ico = {
 
 // ─── NAV LINKS ───────────────────────────────────────────────────────────────
 const NAV_LINKS = [
-	{ href: "http://localhost:3000/admin", label: "Admin", icon: "🏛️" },
-	{ href: "http://localhost:3000/admin/posts", label: "Posts", icon: "✏️" },
-	{ href: "http://localhost:3000/admin/galary", label: "Gallery", icon: "🖼️" },
-	{ href: "http://localhost:3000/admin/transactions", label: "Transactions", icon: "₹" },
-	{ href: "http://localhost:3000/dashboard/profile", label: "Profile", icon: "👤" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin" : "http://localhost:3000/admin", icon: "👮", label: "Admin" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/posts" : "http://localhost:3000/admin/posts", icon: "✏️", label: "Posts" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/galary" : "http://localhost:3000/admin/galary", icon: "🖼️", label: "Gallery" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/forms" : "http://localhost:3000/admin/forms", icon: "📋", label: "Forms" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/transactions" : "http://localhost:3000/admin/transactions", icon: "💳", label: "Transactions" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/analytics" : "http://localhost:3000/admin/analytics", icon: "📊", label: "Analytics" },
 ];
 
 // ─── SECTION HEADER COMPONENT ────────────────────────────────────────────────
@@ -505,7 +316,7 @@ export default function AdminGalleryPage() {
 						<div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
 						<div>
 							<div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
-								Shrilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+								Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
 							</div>
 							<div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em" }}>ADMIN PANEL</div>
 						</div>

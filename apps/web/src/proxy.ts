@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ─── Route protection rules ─────────────────────────────────────────────────
 // Public routes — no login needed
-const PUBLIC_ROUTES = ["/", "/status"];
+const PUBLIC_ROUTES = ["/", "/status", "/verify"];
 
 // User routes — any logged-in user
 const USER_ROUTES = ["/dashboard"];

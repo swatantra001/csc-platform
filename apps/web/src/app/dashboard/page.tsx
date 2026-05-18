@@ -1,1312 +1,17 @@
-// "use client";
-
-// import { useState, useEffect, useRef, type DragEvent, useCallback } from "react";
-// import { useAuth } from "@/components/AuthProvider";
-// import { fetchMyRequestsAction, createRequestAction, sendChatMessageAction } from "@/app/actions/requests";
-// import { updateUserProfile } from "../actions/user";
-// import { uploadChatFileAction } from "../actions/storage";
-// import { fetchNotificationsAction, markNotificationsReadAction } from "@/app/actions/notifications";
-// import { io, Socket } from "socket.io-client";
-// import { createRazorpayOrderAction, verifyRazorpayPaymentAction } from "@/app/actions/payment";
-
-// // ─── Types ─────────────────────────────────────────────────────────────────
-// interface AppNotification {
-//   id: string;
-//   title: string;
-//   title_hi: string;
-//   body: string;
-//   body_hi: string;
-//   type: string;
-//   is_read: boolean;
-//   created_at: string;
-// }
-
-// interface TimelineEvent {
-//   event: "submitted" | "seen" | "processing" | "done" | "payment";
-//   time: string;
-//   eventEn: string;
-//   timeEn: string;
-// }
-
-// interface MessageDoc {
-//   name: string;
-//   size: string;
-//   icon: string;
-//   url?: string;
-//   isResult?: boolean;
-// }
-
-// interface Message {
-//   id: number | string;
-//   from: "user" | "admin";
-//   time: string;
-//   date: string;
-//   type: string;
-//   text?: string;
-//   textEn?: string;
-//   doc?: MessageDoc;
-//   amount?: number;
-//   paymentStatus?: string;
-//   adminName?: string;
-//   adminRole?: string;
-//   status?: "seen" | "delivered";
-//   replyToId?: string | number | null;
-//   reply_to_msg?: Message; // Mapped locally for UI
-// }
-
-// interface ResolvedBy {
-//   name: string;
-//   role: string;
-// }
-
-// interface Request {
-//   id: string;
-//   displayId?: string;
-//   title: string;
-//   titleEn: string;
-//   service: string;
-//   status: "pending" | "processing" | "done";
-//   unread: number;
-//   lastMsg: string;
-//   lastMsgEn: string;
-//   lastTime: string;
-//   resolvedBy: ResolvedBy | null;
-//   paymentPending: boolean;
-//   paymentAmount?: number;
-//   messages: Message[];
-//   timeline: TimelineEvent[];
-// }
-
-// // ─── Utils & Formats ───────────────────────────────────────────────────────
-// const formatBytes = (bytes: number) => {
-//   if (bytes === 0) return '0 Bytes';
-//   const k = 1024; const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-//   const i = Math.floor(Math.log(bytes) / Math.log(k));
-//   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-// };
-// const fmtCurrency = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-
-// // ─── Language strings ──────────────────────────────────────────────────────
-// const T = {
-//   hi: {
-//     appName: "श्रीलाल जन सेवा केंद्र",
-//     myRequests: "मेरे आवेदन",
-//     newRequest: "नया आवेदन",
-//     search: "खोजें...",
-//     all: "सभी",
-//     pending: "लंबित",
-//     processing: "प्रक्रिया में",
-//     done: "पूर्ण",
-//     sent: "भेजा",
-//     seen: "देखा",
-//     online: "ऑनलाइन",
-//     today: "आज",
-//     yesterday: "कल",
-//     typeMsg: "संदेश लिखें...",
-//     send: "भेजें",
-//     attach: "दस्तावेज़ जोड़ें",
-//     requestTitle: "आवेदन का विषय",
-//     requestDesc: "विवरण लिखें",
-//     serviceType: "सेवा चुनें",
-//     submitRequest: "आवेदन जमा करें",
-//     uploadDoc: "दस्तावेज़ अपलोड करें",
-//     dragDrop: "फ़ाइल यहाँ खींचें या क्लिक करें",
-//     timeline: "गतिविधि",
-//     payNow: "अभी भुगतान करें",
-//     download: "डाउनलोड",
-//     resolvedBy: "द्वारा हल किया गया",
-//     viewingDoc: "आपके दस्तावेज़ देख रहे हैं",
-//     noRequests: "अभी कोई आवेदन नहीं",
-//     startNew: "नया आवेदन शुरू करें",
-//     wallet: "वॉलेट",
-//     notifications: "सूचनाएं",
-//     profile: "प्रोफ़ाइल",
-//     logout: "लॉगआउट",
-//     cancel: "रद्द करें",
-//     close: "बंद करें",
-//     priority: "प्राथमिकता",
-//     prepaid: "प्रीपेड (तेज़ सेवा)",
-//     regular: "सामान्य",
-//   },
-//   en: {
-//     appName: "Shreelal Jan Seva Kendra",
-//     myRequests: "My Requests",
-//     newRequest: "New Request",
-//     search: "Search...",
-//     all: "All",
-//     pending: "Pending",
-//     processing: "Processing",
-//     done: "Done",
-//     sent: "Sent",
-//     seen: "Seen",
-//     online: "Online",
-//     today: "Today",
-//     yesterday: "Yesterday",
-//     typeMsg: "Type a message...",
-//     send: "Send",
-//     attach: "Attach Document",
-//     requestTitle: "Request Subject",
-//     requestDesc: "Describe your need",
-//     serviceType: "Select Service",
-//     submitRequest: "Submit Request",
-//     uploadDoc: "Upload Document",
-//     dragDrop: "Drag file here or click to browse",
-//     timeline: "Activity",
-//     payNow: "Pay Now",
-//     download: "Download",
-//     resolvedBy: "Resolved by",
-//     viewingDoc: "is viewing your document",
-//     noRequests: "No requests yet",
-//     startNew: "Start a new request",
-//     wallet: "Wallet",
-//     notifications: "Notifications",
-//     profile: "Profile",
-//     logout: "Logout",
-//     cancel: "Cancel",
-//     close: "Close",
-//     priority: "Priority",
-//     prepaid: "Prepaid (Faster Service)",
-//     regular: "Regular",
-//   },
-// };
-
-// const SERVICES = ["आधार अपडेट / Aadhaar Update", "पैन कार्ड / PAN Card", "जाति प्रमाण पत्र / Caste Certificate", "छात्रवृत्ति / Scholarship", "PM किसान / PM Kisan", "आयुष्मान कार्ड / Ayushman Card", "टिकट बुकिंग / Ticket Booking", "पैसे ट्रांसफर / Money Transfer", "अन्य / Other"];
-
-// const STATUS_CONFIG: Record<string, any> = {
-//   pending: { color: "#b07a10", bg: "#fffbf0", bgDark: "#2a1f08", border: "#f0d090", borderDark: "#5c3d0a", label: "लंबित", labelEn: "Pending", icon: "⏳" },
-//   seen: { color: "#1a5aa0", bg: "#f0f5ff", bgDark: "#080f1f", border: "#90b0e0", borderDark: "#0a2a5c", label: "देखा गया", labelEn: "Seen", icon: "👁️" },
-//   processing: { color: "#1a5aa0", bg: "#f0f5ff", bgDark: "#080f1f", border: "#90b0e0", borderDark: "#0a2a5c", label: "प्रक्रिया में", labelEn: "Processing", icon: "⚙️" },
-//   payment_pending: { color: "#c45c1a", bg: "#fff5ee", bgDark: "#2a1208", border: "#f0b090", borderDark: "#5c2a0a", label: "भुगतान बाकी", labelEn: "Payment Pending", icon: "💳" },
-//   done: { color: "#1a7a3a", bg: "#f0fbf4", bgDark: "#0a1f0f", border: "#90d0a0", borderDark: "#1a5c30", label: "पूर्ण", labelEn: "Done", icon: "✅" },
-//   cancelled: { color: "#6b6259", bg: "#f7f5f0", bgDark: "#202020", border: "#dedad2", borderDark: "#2c2c2c", label: "रद्द", labelEn: "Cancelled", icon: "❌" }
-// };
-
-// const TIMELINE_ICONS = { submitted: "📤", seen: "👁️", processing: "⚙️", done: "✅", payment: "💳" };
-
-// // ─── Waveform component ────────────────────────────────────────────────────
-// function VoiceWave({ playing, dark }: { playing: boolean, dark: boolean }) {
-//   const bars = [4, 8, 14, 10, 18, 12, 8, 16, 10, 6, 12, 16, 8, 14, 10];
-//   return (
-//     <div style={{ display: "flex", alignItems: "center", gap: 2, height: 24 }}>
-//       {bars.map((h, i) => (
-//         <div key={i} style={{
-//           width: 3, height: h, borderRadius: 2,
-//           background: playing ? "#25d366" : (dark ? "#5a6a5a" : "#90b090"),
-//           animation: playing ? `waveAnim 0.8s ease-in-out infinite alternate` : "none",
-//           animationDelay: `${i * 0.05}s`,
-//         }} />
-//       ))}
-//     </div>
-//   );
-// }
-
-// // ─── Main component ────────────────────────────────────────────────────────
-// export default function CSCUserDashboard() {
-//   const [lang, setLang] = useState("en");
-//   const [dark, setDark] = useState(false);
-//   const [activeTab, setActiveTab] = useState("all");
-//   const [activeRequest, setActiveRequest] = useState<Request | null>(null);
-//   const [requests, setRequests] = useState<Request[]>([]);
-//   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-//   const [socket, setSocket] = useState<Socket | null>(null);
-
-//   // UI State
-//   const [showNew, setShowNew] = useState(false);
-//   const [showTimeline, setShowTimeline] = useState(false);
-//   const [searchVal, setSearchVal] = useState("");
-//   const [notifOpen, setNotifOpen] = useState(false);
-//   const [sidebarOpen, setSidebarOpen] = useState(false);
-//   const [viewingAlert, setViewingAlert] = useState(false);
-
-//   // Chat/Input State
-//   const [msgVal, setMsgVal] = useState("");
-//   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-//   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-//   const [isDragOver, setIsDragOver] = useState(false);
-//   const [isSending, setIsSending] = useState(false);
-
-//   // New Request Form State
-//   const [newTitle, setNewTitle] = useState("");
-//   const [newDesc, setNewDesc] = useState("");
-//   const [newService, setNewService] = useState("");
-//   const [newPriority, setNewPriority] = useState("regular");
-//   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-
-//   const msgEndRef = useRef<HTMLDivElement>(null);
-//   const fileInputRef = useRef<HTMLInputElement>(null);
-//   const t = T[lang as "hi" | "en"] as typeof T["hi"];
-
-//   const { user, isLoggedIn, logout, loading: authLoading } = useAuth();
-
-//   // ─── AUTH & INIT ───
-//   useEffect(() => {
-//     if (!authLoading && !isLoggedIn) window.location.href = "/";
-//   }, [authLoading, isLoggedIn]);
-
-//   useEffect(() => {
-//     const savedTheme = localStorage.getItem("csc_theme");
-//     if (savedTheme) setDark(savedTheme === "dark");
-//     else setDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
-//     if (user?.preferred_lang) setLang(user.preferred_lang);
-//   }, [user]);
-
-//   // ─── FETCH LOGIC ───
-//   const loadRequests = useCallback(async () => {
-//     if (!isLoggedIn) return;
-//     try {
-//       const data = await fetchMyRequestsAction();
-
-//       // Link replies locally for UI visualization
-//       const enrichedData = data.map((req: any) => ({
-//         ...req,
-//         messages: req.messages.map((m: any) => ({
-//           ...m,
-//           reply_to_msg: m.replyToId ? req.messages.find((old: any) => old.id === m.replyToId) : undefined
-//         }))
-//       }));
-
-//       setRequests(enrichedData);
-
-//       // Use functional state update to break the dependency loop
-//       setActiveRequest(prev => {
-//         if (!prev) return prev;
-//         const updated = enrichedData.find((r: any) => r.id === prev.id);
-//         return updated || prev;
-//       });
-//     } catch (e) { console.error(e); }
-//   }, [isLoggedIn]);
-
-//   // Initial Data Load
-//   useEffect(() => {
-//     if (isLoggedIn) {
-//       loadRequests();
-//       fetchNotificationsAction().then((data) => setNotifications(data as any));
-//     }
-//   }, [isLoggedIn, loadRequests]);
-
-//   // ─── SOCKET CONNECTION (Connects ONLY once) ───
-//   useEffect(() => {
-//     const socketInstance = io();
-//     setSocket(socketInstance);
-//     // Cleanup ONLY when the whole component unmounts (tab closes)
-//     return () => { socketInstance.disconnect(); };
-//   }, []);
-
-//   // ─── SOCKET LISTENERS ───
-//   useEffect(() => {
-//     if (!socket) return;
-//     // Listen for queue refresh events
-//     const handleRefresh = () => loadRequests();
-//     socket.on("refresh_queue", handleRefresh);
-//     return () => { socket.off("refresh_queue", handleRefresh); };
-//   }, [socket, loadRequests]);
-
-//   // Join Chat Room & Listen for Messages
-//   const activeReqId = activeRequest?.id; // Extract ID so object reference changes don't trigger the hook
-
-//   useEffect(() => {
-//     if (!activeReqId || !socket) return;
-
-//     socket.emit("join_chat", activeReqId);
-
-//     const handleNewMessage = (newMsg: any) => {
-//       const formattedMsg: Message = {
-//         id: newMsg.id,
-//         from: newMsg.sender_role === "user" ? "user" : "admin",
-//         text: newMsg.content,
-//         textEn: newMsg.content,
-//         time: new Date(newMsg.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-//         date: "today",
-//         type: newMsg.message_type || "text",
-//         doc: (newMsg.doc_url || newMsg.file_url) ? {
-//           name: newMsg.doc_name || newMsg.file_name,
-//           size: newMsg.doc_size || newMsg.file_size,
-//           icon: "📄",
-//           url: newMsg.doc_url || newMsg.file_url
-//         } : undefined,
-//         amount: newMsg.payment_amount,
-//         replyToId: newMsg.reply_to_id || null,
-//         adminName: newMsg.users?.name,
-//         adminRole: newMsg.users?.role
-//       };
-
-//       setRequests(prev => prev.map(req => {
-//         if (req.id === newMsg.request_id) {
-//           if (req.messages.some(m => m.id === formattedMsg.id)) return req; // Prevent dupes
-
-//           const repMsg = formattedMsg.replyToId ? req.messages.find(old => old.id === formattedMsg.replyToId) : undefined;
-//           formattedMsg.reply_to_msg = repMsg;
-
-//           return { ...req, messages: [...req.messages, formattedMsg] };
-//         }
-//         return req;
-//       }));
-
-//       // Update active request message list safely
-//       setActiveRequest(prev => {
-//         if (!prev || prev.id !== newMsg.request_id) return prev;
-//         if (prev.messages.some(m => m.id === formattedMsg.id)) return prev;
-
-//         const repMsg = formattedMsg.replyToId ? prev.messages.find(old => old.id === formattedMsg.replyToId) : undefined;
-//         formattedMsg.reply_to_msg = repMsg;
-
-//         return { ...prev, messages: [...prev.messages, formattedMsg] };
-//       });
-//     };
-
-//     socket.on("new_message", handleNewMessage);
-
-//     return () => {
-//       socket.off("new_message", handleNewMessage);
-//     };
-//   }, [activeReqId, socket]);
-
-//   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeRequest?.messages]);
-
-//   // Simulate admin viewing notification
-//   useEffect(() => {
-//     if (activeRequest?.status === "processing") {
-//       const t = setTimeout(() => setViewingAlert(true), 3000);
-//       return () => clearTimeout(t);
-//     }
-//     setViewingAlert(false);
-//   }, [activeRequest]);
-
-//   // ─── LISTEN FOR FORCED LOGOUT (User Side) ───
-//   useEffect(() => {
-//     if (!socket || !user) return;
-
-//     const handleKick = () => {
-//       alert("Your account role has been updated by an Administrator. Please log in again to sync your access.");
-//       logout(); // This safely logs them out and redirects to home
-//     };
-
-//     socket.on(`logout_command_${user.id}`, handleKick);
-
-//     return () => {
-//       socket.off(`logout_command_${user.id}`, handleKick);
-//     };
-//   }, [socket, user, logout]);
-
-//   // ─── HANDLERS ───
-//   const toggleTheme = () => {
-//     const newDark = !dark; setDark(newDark);
-//     localStorage.setItem("csc_theme", newDark ? "dark" : "light");
-//   };
-
-//   const toggleLanguage = async () => {
-//     const newLang = lang === "hi" ? "en" : "hi"; setLang(newLang);
-//     if (user) await updateUserProfile({ preferred_lang: newLang });
-//   };
-
-//   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     if (e.target.files) setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-//   };
-
-//   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-//     e.preventDefault(); setIsDragOver(false);
-//     if (e.dataTransfer.files) setAttachedFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
-//   };
-
-//   const handleDownload = async (url: string, filename: string) => {
-//     try {
-//       const response = await fetch(url);
-//       const blob = await response.blob();
-//       const blobUrl = window.URL.createObjectURL(blob);
-//       const link = document.createElement('a');
-//       link.href = blobUrl; link.download = filename || "download";
-//       document.body.appendChild(link); link.click();
-//       document.body.removeChild(link); window.URL.revokeObjectURL(blobUrl);
-//     } catch (e) {
-//       window.open(url, '_blank');
-//     }
-//   };
-
-//   const handlePayment = async (messageId: string, amount: number) => { // ✨ Added messageId
-//     if (!activeRequest || !user) return;
-
-//     // 1. Dynamically load Razorpay SDK Script
-//     const loadScript = () => new Promise((resolve) => {
-//       const script = document.createElement("script");
-//       script.src = "https://checkout.razorpay.com/v1/checkout.js";
-//       script.onload = () => resolve(true);
-//       script.onerror = () => resolve(false);
-//       document.body.appendChild(script);
-//     });
-
-//     const res = await loadScript();
-//     if (!res) {
-//       alert("Razorpay SDK failed to load. Are you online?");
-//       return;
-//     }
-
-//     try {
-//       // Pass messageId instead of activeRequest.id
-//       const orderRes = await createRazorpayOrderAction(messageId, amount);
-//       if (!orderRes.success) throw new Error(orderRes.error || "Could not create order");
-//       if (!orderRes.order) throw new Error("Invalid order response from server");
-//       // 3. Configure Razorpay Popup
-//       const options = {
-//         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-//         amount: orderRes.order.amount, // Convert to paise
-//         currency: "INR",
-//         name: "CSC Shambhuganj - Shrilal Yadav",
-//         description: `Payment for ${activeRequest.title}`,
-//         order_id: orderRes.order.id,
-//         prefill: {
-//           name: user.name || "",
-//           contact: user.mobile || "",
-//           email: user.email || "",
-//         },
-//         theme: { color: "#c45c1a" },
-//         handler: async function (response: any) {
-//           // 4. Verification Callback
-//           try {
-//             // Pass messageId here too
-//             await verifyRazorpayPaymentAction(
-//               messageId,
-//               activeRequest.id,
-//               response.razorpay_order_id,
-//               response.razorpay_payment_id,
-//               response.razorpay_signature
-//             );
-//             alert("Payment Successful! Your request is now processing.");
-//             loadRequests(); // Refresh UI
-//             socket?.emit("trigger_queue_refresh"); // Tell Admin
-//           } catch (err) {
-//             alert("Payment Verification Failed!");
-//           }
-//         },
-//       };
-
-//       // Open Razorpay
-//       const paymentObject = new (window as any).Razorpay(options);
-//       paymentObject.open();
-
-//     } catch (err: any) {
-//       alert(err.message);
-//     }
-//   };
-
-//   const sendMessage = async () => {
-//     if (!activeRequest || !user) return;
-//     if (!msgVal.trim() && attachedFiles.length === 0) return;
-
-//     setIsSending(true);
-//     const replyId = replyingTo?.id ? String(replyingTo.id) : undefined;
-//     const textToSend = msgVal.trim();
-
-//     try {
-//       // 1. Upload & Send Files
-//       const uploadedDocs = [];
-//       for (const file of attachedFiles) {
-//         const formData = new FormData();
-//         formData.append("file", file);
-//         formData.append("requestId", activeRequest.id);
-
-//         const uploadResult = await uploadChatFileAction(formData);
-//         if (!uploadResult.success) throw new Error(uploadResult.error);
-
-//         uploadedDocs.push({ name: uploadResult.name, url: uploadResult.url, size: formatBytes(file.size) });
-//       }
-
-//       // 2. Send Text
-//       if (textToSend) {
-//         // Send strictly mapped arguments to the Database action
-//         await sendChatMessageAction(activeRequest.id, textToSend, undefined, undefined, undefined, replyId);
-
-//         // Emit enriched payload for Real-time UI
-//         const msgPayload = {
-//           id: `temp-${Date.now()}`,
-//           request_id: activeRequest.id,
-//           sender_id: user.id,
-//           sender_role: "user",
-//           message_type: "text",
-//           content: textToSend,
-//           reply_to_id: replyId || null,
-//           created_at: new Date().toISOString(),
-//           users: { name: user.name }
-//         };
-//         socket?.emit("send_message", msgPayload);
-//         socket?.emit("trigger_queue_refresh");
-//       }
-
-//       // 3. Send Docs
-//       for (const doc of uploadedDocs) {
-//         await sendChatMessageAction(activeRequest.id, "", doc.url, doc.name, doc.size, replyId);
-
-//         const docPayload = {
-//           id: `temp-${Date.now()}-${Math.random()}`,
-//           request_id: activeRequest.id,
-//           sender_id: user.id,
-//           sender_role: "user",
-//           message_type: "doc",
-//           doc_name: doc.name,
-//           doc_url: doc.url,
-//           doc_size: doc.size,
-//           file_name: doc.name, file_url: doc.url, file_size: doc.size, // Fallbacks
-//           reply_to_id: replyId || null,
-//           created_at: new Date().toISOString(),
-//           users: { name: user.name }
-//         };
-//         socket?.emit("send_message", docPayload);
-//         socket?.emit("trigger_queue_refresh");
-//       }
-
-//       setMsgVal(""); setAttachedFiles([]); setReplyingTo(null);
-//     } catch (err: any) {
-//       alert("Failed to send message: " + err.message);
-//     } finally {
-//       setIsSending(false);
-//     }
-//   };
-
-//   const submitNewRequest = async () => {
-//     if (!newTitle || !newService) return;
-//     try {
-//       await createRequestAction({ service: newService, title: newTitle, desc: newDesc, priority: newPriority });
-//       loadRequests();
-//       socket?.emit("trigger_queue_refresh"); // Notify admins
-//       setShowNew(false); setNewTitle(""); setNewDesc(""); setNewService(""); setNewPriority("regular"); setUploadedFiles([]);
-//     } catch (error) { alert("Failed to submit request."); }
-//   };
-
-//   const unreadNotifsCount = notifications.filter(n => !n.is_read).length;
-
-//   // Safely filter requests
-//   const filtered = requests.filter(r => {
-//     if (activeTab !== "all" && r.status !== activeTab) return false;
-//     const q = searchVal.toLowerCase();
-//     if (q) {
-//       const matchTitle = (r.title || "").toLowerCase().includes(q);
-//       const matchTitleEn = (r.titleEn || "").toLowerCase().includes(q);
-//       const matchId = (r.displayId || r.id || "").toLowerCase().includes(q);
-//       if (!matchTitle && !matchTitleEn && !matchId) return false;
-//     }
-//     return true;
-//   });
-
-//   const bg = dark ? "#0d0d0d" : "#f2f0ea";
-//   const surface = dark ? "#181818" : "#ffffff";
-//   const surface2 = dark ? "#202020" : "#f7f5f0";
-//   const surface3 = dark ? "#252525" : "#edeae3";
-//   const border = dark ? "#2c2c2c" : "#dedad2";
-//   const text = dark ? "#eee8dc" : "#1a1612";
-//   const textMid = dark ? "#9a9080" : "#6b6259";
-//   const textLight = dark ? "#5a5248" : "#aaa098";
-//   const accent = "#c45c1a";
-//   const accentDark = "#a34a12";
-//   const navy = "#1a3a5c";
-//   const accentGreen = "#1a7a3a";
-//   const waBubble = dark ? "#1a2e1a" : "#dcf8c6";
-//   const adminBubble = dark ? "#1e1e1e" : "#ffffff";
-//   const adminBubbleBorder = dark ? "#2e2e2e" : "#e8e2d8";
-
-//   return (
-//     <div style={{ background: bg, color: text, height: "100vh", display: "flex", flexDirection: "column", fontFamily: "'Noto Sans', 'Noto Sans Devanagari', sans-serif", overflow: "hidden" }}>
-//       <style>{`
-//         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;600;700&family=Noto+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap');
-//         * { box-sizing: border-box; margin: 0; padding: 0; }
-//         ::-webkit-scrollbar { width: 4px; }
-//         ::-webkit-scrollbar-track { background: transparent; }
-//         ::-webkit-scrollbar-thumb { background: ${border}; border-radius: 2px; }
-
-//         @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-//         @keyframes slideIn { from { transform:translateX(-100%); } to { transform:translateX(0); } }
-//         @keyframes slideUp { from { transform:translateY(100%); opacity:0; } to { transform:translateY(0); opacity:1; } }
-//         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
-//         @keyframes waveAnim { from { transform:scaleY(0.4); } to { transform:scaleY(1); } }
-//         @keyframes notifSlide { from { transform:translateY(-20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-//         @keyframes ringPulse { 0%,100% { box-shadow:0 0 0 0 rgba(196,92,26,0.4); } 70% { box-shadow:0 0 0 8px rgba(196,92,26,0); } }
-
-//         .req-row { display:flex; align-items:center; gap:12px; padding:14px 16px; cursor:pointer; border-bottom:1px solid ${border}; transition:background 0.15s; }
-//         .req-row:hover { background:${surface3}; }
-//         .req-row.active { background:${dark ? "#1e1a14" : "#fff5ee"}; border-left:3px solid ${accent}; padding-left:13px; }
-
-//         .tab-btn { padding:6px 14px; border-radius:20px; border:1.5px solid ${border}; background:transparent; color:${textMid}; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; transition:all 0.15s; white-space:nowrap; }
-//         .tab-btn.active { background:${accent}; border-color:${accent}; color:#fff; }
-//         .tab-btn:hover:not(.active) { border-color:${accent}; color:${accent}; }
-
-//         .msg-input { flex:1; padding:12px 18px; border:1.5px solid ${border}; border-radius:24px; background:${surface2}; color:${text}; font-size:15px; outline:none; font-family:inherit; resize:none; max-height:120px; transition:border-color 0.2s; line-height:1.5; }
-//         .msg-input:focus { border-color:${accent}; }
-//         .msg-input::placeholder { color:${textLight}; }
-
-//         .send-btn { width:46px; height:46px; border-radius:50%; background:${accent}; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background 0.15s, transform 0.1s; }
-//         .send-btn:hover { background:${accentDark}; }
-//         .send-btn:active { transform:scale(0.92); }
-//         .send-btn:disabled { opacity:0.5; cursor:not-allowed; }
-
-//         .icon-btn { background:transparent; border:1.5px solid ${border}; border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; transition:border-color 0.15s, background 0.15s; flex-shrink:0; color:${textMid}; }
-//         .icon-btn:hover { border-color:${accent}; background:${dark ? "#1e1208" : "#fff5ee"}; color:${accent}; }
-
-//         .doc-card { display:flex; align-items:center; gap:10px; padding:10px 14px; background:${dark ? "#151515" : "#f7f3ec"}; border:1px solid ${border}; border-radius:10px; cursor:pointer; transition:border-color 0.15s; }
-//         .doc-card:hover { border-color:${accent}; }
-
-//         .pay-card { background:${dark ? "#1a1208" : "#fffbf0"}; border:1.5px solid ${dark ? "#5c3d0a" : "#f0d090"}; border-radius:12px; padding:14px 16px; }
-
-//         .timeline-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
-
-//         .new-drawer { position:fixed; inset:0; z-index:200; display:flex; flex-direction:column; justify-content:flex-end; }
-//         .new-drawer-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); }
-//         .new-drawer-box { position:relative; background:${surface}; border-radius:20px 20px 0 0; padding:24px 20px 32px; animation:slideUp 0.3s ease; max-height:92vh; overflow-y:auto; }
-
-//         .csc-input { width:100%; padding:11px 14px; border:1.5px solid ${border}; border-radius:10px; background:${surface2}; color:${text}; font-size:14px; outline:none; font-family:inherit; transition:border-color 0.2s; }
-//         .csc-input:focus { border-color:${accent}; }
-//         .csc-input::placeholder { color:${textLight}; }
-
-//         .drop-zone { border:2px dashed ${isDragOver ? accent : border}; border-radius:12px; padding:24px; text-align:center; cursor:pointer; transition:all 0.2s; background:${isDragOver ? (dark ? "#1e1208" : "#fff5ee") : "transparent"}; }
-
-//         .status-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700; border:1px solid; }
-
-//         .viewing-banner { position:absolute; top:0; left:0; right:0; background:${dark ? "#1a2a1a" : "#e8f8e8"}; border-bottom:1px solid ${dark ? "#2a5a2a" : "#a0d0a0"}; padding:8px 16px; display:flex; align-items:center; gap:8px; font-size:12px; color:${dark ? "#70c870" : "#1a6a1a"}; z-index:10; animation:notifSlide 0.3s ease; }
-
-//         .notif-dot { width:8px; height:8px; border-radius:50%; background:#2a9a2a; animation:pulse 1.5s infinite; flex-shrink:0; }
-
-//         .priority-opt { flex:1; padding:10px; border:1.5px solid ${border}; border-radius:10px; cursor:pointer; text-align:center; transition:all 0.15s; font-family:inherit; }
-//         .priority-opt.selected { border-color:${accent}; background:${dark ? "#1e1208" : "#fff5ee"}; }
-
-//         .avatar { border-radius:50%; width:42px; height:42px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; flex-shrink:0; }
-
-//         .sidebar-overlay { position:fixed; inset:0; z-index:150; display:flex; }
-//         .sidebar-backdrop { flex:1; background:rgba(0,0,0,0.4); }
-//         .sidebar-panel { width:260px; background:${surface}; height:100%; padding:24px 0; display:flex; flex-direction:column; animation:slideIn 0.25s ease; border-right:1px solid ${border}; }
-
-//         .chat-date-sep { text-align:center; margin:16px 0; }
-//         .chat-date-pill { display:inline-block; background:${surface3}; border:1px solid ${border}; border-radius:99px; padding:3px 14px; font-size:11px; color:${textMid}; }
-
-//         .unread-badge { min-width:20px; height:20px; border-radius:10px; background:${accent}; color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 5px; }
-//         .unread-badge-green { background:#2a9a2a; }
-
-//         .tick-seen { color:#53bdeb; }
-//         .tick-delivered { color:${textLight}; }
-
-//         /* WhatsApp Style Bubbles */
-//         .msg-bubble-admin, .msg-bubble-user { position:relative; padding:10px 14px; border-radius:8px; max-width:75%; box-shadow:0 1px 2px rgba(0,0,0,0.1); display:flex; flex-direction:column; }
-//         .msg-bubble-admin { background:${adminBubble}; border:1px solid ${adminBubbleBorder}; border-top-left-radius:0; }
-//         .msg-bubble-user { background:${waBubble}; border:1px solid ${dark ? "#2a5a2a" : "#b8e890"}; border-top-right-radius:0; }
-
-//         .msg-bubble-admin::before { content:''; position:absolute; top:0; left:-8px; width:0; height:0; border-top:10px solid ${adminBubble}; border-left:10px solid transparent; }
-//         .msg-bubble-user::before { content:''; position:absolute; top:0; right:-8px; width:0; height:0; border-top:10px solid ${waBubble}; border-right:10px solid transparent; }
-
-//         .reply-block { background:rgba(0,0,0,0.06); border-left:4px solid ${accent}; padding:6px 10px; border-radius:4px; margin-bottom:6px; cursor:pointer; }
-//         .reply-block .rep-name { font-size:12px; font-weight:700; color:${accent}; margin-bottom:2px; }
-//         .reply-block .rep-text { font-size:13px; color:${text}; opacity:0.8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-
-//         .doc-img { width:220px; height:220px; object-fit:cover; border-radius:6px; margin-top:4px; cursor:pointer; border:1px solid ${border}; }
-
-//         .group:hover .msg-reply-btn { opacity: 0.5; } 
-//         .msg-reply-btn:hover { opacity: 1 !important; color:${accent} !important; }
-
-//         @media (max-width: 700px) {
-//           .desktop-list { display: none !important; }
-//           .chat-panel { display: flex !important; }
-//         }
-//       `}</style>
-
-//       {/* ── TOP BAR ── */}
-//       <div style={{ background: navy, color: "#fff", padding: "0 16px", display: "flex", alignItems: "center", height: 56, gap: 12, flexShrink: 0, zIndex: 50 }}>
-//         <button onClick={() => setSidebarOpen(true)} style={{ background: "transparent", border: "none", color: "#e8dfc8", cursor: "pointer", fontSize: 22, display: "flex", alignItems: "center", padding: 4 }}>☰</button>
-//         <div style={{ flex: 1 }}>
-//           <div style={{ fontFamily: "'Noto Serif Devanagari', serif", fontSize: 17, fontWeight: 700, color: "#e8dfc8", lineHeight: 1.2 }}>{t.appName}</div>
-//           <div style={{ fontSize: 10, color: "#8a9ab0", letterSpacing: "0.04em" }}>Shambhuganj, Jaunpur · UP</div>
-//         </div>
-//         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-//           <button onClick={toggleLanguage} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 16, padding: "4px 12px", fontSize: 11, color: "#e8dfc8", cursor: "pointer", fontWeight: 700 }}>
-//             {lang === "hi" ? "EN" : "हि"}
-//           </button>
-//           <button onClick={toggleTheme} style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 50, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14 }}>
-//             {dark ? "☀️" : "🌙"}
-//           </button>
-//           <button onClick={() => {
-//             setNotifOpen(true);
-//             if (unreadNotifsCount > 0) {
-//               setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-//               markNotificationsReadAction();
-//             }
-//           }} style={{ position: "relative", background: "transparent", border: "none", cursor: "pointer", fontSize: 20, color: "#e8dfc8" }}>
-//             🔔
-//             {unreadNotifsCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, background: "#e63a1a", color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>{unreadNotifsCount}</span>}
-//           </button>
-//         </div>
-//       </div>
-
-//       {/* ── MAIN LAYOUT ── */}
-//       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-
-//         {/* ── SIDEBAR / REQUEST LIST ── */}
-//         <div style={{ width: 340, borderRight: `1px solid ${border}`, display: "flex", flexDirection: "column", background: surface, flexShrink: 0, overflow: "hidden" }}>
-
-//           {/* Search + filter */}
-//           <div style={{ padding: "12px 14px 8px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
-//             <div style={{ position: "relative", marginBottom: 10 }}>
-//               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: textLight }}>🔍</span>
-//               <input value={searchVal} onChange={e => setSearchVal(e.target.value)} placeholder={t.search} style={{ width: "100%", padding: "9px 12px 9px 36px", border: `1.5px solid ${border}`, borderRadius: 20, background: surface2, color: text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-//             </div>
-//             <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-//               {["all", "pending", "processing", "done"].map(tab => (
-//                 <button key={tab} onClick={() => setActiveTab(tab)} className={`tab-btn ${activeTab === tab ? "active" : ""}`}>
-//                   {tab === "all" ? t.all : tab === "pending" ? t.pending : tab === "processing" ? t.processing : t.done}
-//                 </button>
-//               ))}
-//             </div>
-//           </div>
-
-//           {/* Request rows */}
-//           <div style={{ flex: 1, overflowY: "auto" }}>
-//             {filtered.length === 0 ? (
-//               <div style={{ padding: 32, textAlign: "center", color: textMid }}>
-//                 <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-//                 <div style={{ fontSize: 14, marginBottom: 8 }}>{t.noRequests}</div>
-//                 <button onClick={() => setShowNew(true)} style={{ background: "none", border: "none", color: accent, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{t.startNew}</button>
-//               </div>
-//             ) : filtered.map((req) => {
-//               const sc = STATUS_CONFIG[req.status as keyof typeof STATUS_CONFIG];
-//               if (!sc) return null;
-//               const isActive = activeRequest?.id === req.id;
-//               return (
-//                 <div key={req.id} className={`req-row ${isActive ? "active" : ""}`} onClick={() => { setActiveRequest(req as any); setRequests(prev => prev.map(r => r.id === req.id ? { ...r, unread: 0 } : r) as any); }}>
-//                   {/* Avatar */}
-//                   <div className="avatar" style={{ background: dark ? "#1e1208" : "#fde8d8", color: accent, fontSize: 18 }}>
-//                     {req.service.includes("आधार") || req.service.includes("Aadhaar") ? "🪪" : req.service.includes("किसान") || req.service.includes("Kisan") ? "🌾" : req.service.includes("छात्र") || req.service.includes("Scholar") ? "🎓" : "📋"}
-//                   </div>
-//                   <div style={{ flex: 1, minWidth: 0 }}>
-//                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 3 }}>
-//                       <span style={{ fontWeight: 600, fontSize: 14, color: text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{lang === "hi" ? req.title : req.titleEn}</span>
-//                       <span style={{ fontSize: 11, color: textLight, flexShrink: 0, marginLeft: 6 }}>{req.lastTime}</span>
-//                     </div>
-//                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-//                       <span style={{ fontSize: 12, color: textMid, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 170 }}>{lang === "hi" ? req.lastMsg : req.lastMsgEn}</span>
-//                       <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0, marginLeft: 4 }}>
-//                         {req.paymentPending && <span style={{ fontSize: 10 }}>💳</span>}
-//                         {req.unread > 0 ? <span className="unread-badge">{req.unread}</span> : <span style={{ fontSize: 10 }}>{sc.icon}</span>}
-//                       </div>
-//                     </div>
-//                     <div style={{ marginTop: 4 }}>
-//                       <span className="status-pill" style={{ background: dark ? sc.bgDark : sc.bg, color: sc.color, borderColor: dark ? sc.borderDark : sc.border }}>
-//                         {lang === "hi" ? sc.label : sc.labelEn}
-//                       </span>
-//                     </div>
-//                   </div>
-//                 </div>
-//               );
-//             })}
-//           </div>
-
-//           {/* New request FAB */}
-//           <div style={{ padding: "12px 14px", borderTop: `1px solid ${border}`, flexShrink: 0 }}>
-//             <button onClick={() => setShowNew(true)} style={{ width: "100%", padding: "12px", background: accent, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.15s", animation: "ringPulse 2s infinite" }}>
-//               <span style={{ fontSize: 18 }}>✏️</span> {t.newRequest}
-//             </button>
-//           </div>
-//         </div>
-
-//         {/* ── CHAT PANEL ── */}
-//         {activeRequest ? (
-//           <div
-//             style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}
-//             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-//             onDragLeave={() => setIsDragOver(false)}
-//             onDrop={handleDrop}
-//           >
-
-//             {isDragOver && (
-//               <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 24, fontWeight: 700, border: `4px dashed ${accent}`, margin: 16, borderRadius: 16 }}>
-//                 Drop files here to attach
-//               </div>
-//             )}
-
-//             {/* Chat header */}
-//             <div style={{ background: surface, borderBottom: `1px solid ${border}`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0, zIndex: 10 }}>
-//               <div className="avatar" style={{ background: dark ? "#1e1208" : "#fde8d8", color: accent }}>
-//                 {activeRequest.service.includes("आधार") || activeRequest.service.includes("Aadhaar") ? "🪪" : activeRequest.service.includes("किसान") ? "🌾" : activeRequest.service.includes("छात्र") ? "🎓" : "📋"}
-//               </div>
-//               <div style={{ flex: 1 }}>
-//                 <div style={{ fontFamily: "'Noto Serif Devanagari', serif", fontSize: 16, fontWeight: 700, color: text }}>{lang === "hi" ? activeRequest.title : activeRequest.titleEn}</div>
-//                 <div style={{ fontSize: 11, color: textMid }}>{(activeRequest as any).displayId || activeRequest.id.split('-')[0].toUpperCase()} · {lang === "hi" ? activeRequest.service : activeRequest.service}</div>
-//               </div>
-//               <div style={{ display: "flex", gap: 8 }}>
-//                 {activeRequest.resolvedBy && (
-//                   <div style={{ fontSize: 12, color: accentGreen, background: dark ? "#0a1f0f" : "#f0fbf4", border: `1px solid ${dark ? "#1a5c30" : "#90d0a0"}`, borderRadius: 8, padding: "4px 10px" }}>
-//                     {t.resolvedBy}: {activeRequest.resolvedBy.name}
-//                   </div>
-//                 )}
-//                 <button onClick={() => setShowTimeline(true)} className="icon-btn" title="Activity">📋</button>
-//               </div>
-//             </div>
-
-//             {/* Viewing alert banner */}
-//             {viewingAlert && (
-//               <div className="viewing-banner">
-//                 <div className="notif-dot"></div>
-//                 <span>
-//                   {/* ✨ Automatically grabs the name of the admin handling this chat ✨ */}
-//                   {activeRequest?.messages?.find(m => m.from === "admin")?.adminName || "An Operator"} {t.viewingDoc}
-//                 </span>
-//                 <button onClick={() => setViewingAlert(false)} style={{ marginLeft: "auto", background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 14 }}>✕</button>
-//               </div>
-//             )}
-
-//             {/* Messages */}
-//             <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 4, background: dark ? "#111" : "#ebe5d9", backgroundImage: dark ? "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" : "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
-
-//               {activeRequest.messages.map((msg: Message, idx: number) => {
-//                 const isUser = msg.from === "user";
-//                 const prevMsg = activeRequest.messages[idx - 1];
-//                 const showDate = !prevMsg || prevMsg.date !== msg.date;
-//                 const showSender = !isUser && (!prevMsg || prevMsg.from !== "user" && (prevMsg.type !== "doc" || prevMsg.adminName !== msg.adminName));
-
-//                 return (
-//                   <div key={msg.id}>
-//                     {showDate && (
-//                       <div className="chat-date-sep">
-//                         <span className="chat-date-pill">{msg.date === "today" ? t.today : t.yesterday}</span>
-//                       </div>
-//                     )}
-
-//                     <div className="group" style={{ display: "flex", flexDirection: isUser ? "row-reverse" : "row", gap: 8, marginBottom: 6, alignItems: "flex-end", position: "relative" }}>
-
-//                       {!isUser && (
-//                         <div className="avatar" style={{ width: 30, height: 30, background: dark ? "#1a2a3a" : "#e0eaf5", color: navy, fontSize: 12, marginBottom: 2 }}>
-//                           {msg.adminName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2) || "OP"}
-//                         </div>
-//                       )}
-
-//                       <div style={{ maxWidth: "70%" }}>
-//                         {!isUser && showSender && (
-//                           <div style={{ fontSize: 11, color: accent, fontWeight: 700, marginBottom: 3, paddingLeft: 4 }}>{msg.adminName} · {msg.adminRole}</div>
-//                         )}
-
-//                         <div style={{ background: isUser ? waBubble : adminBubble, border: `1px solid ${isUser ? (dark ? "#2a5a2a" : "#b8e890") : adminBubbleBorder}`, borderRadius: isUser ? "12px 12px 0 12px" : "12px 12px 12px 0", padding: msg.type === "doc" ? 4 : "8px 12px 6px", overflow: "hidden", minWidth: msg.type === "doc" ? 180 : 0 }}>
-
-//                           {/* ── RENDER REPLIED MESSAGE PREVIEW ── */}
-//                           {msg.reply_to_msg && (
-//                             <div className="reply-block" style={{ background: isUser ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.04)", padding: "6px 10px", borderRadius: 8, marginBottom: 6, fontSize: 12, borderLeft: `3px solid ${isUser ? (dark ? "#4ade80" : "#16a34a") : accent}` }}>
-//                               <div style={{ fontWeight: 700, opacity: 0.7, marginBottom: 2 }}>{msg.reply_to_msg.from === 'user' ? 'You' : 'Admin'}</div>
-//                               <div style={{ opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-//                                 {msg.reply_to_msg.text || (msg.reply_to_msg.type === "doc" ? "📄 Document" : "💳 Payment")}
-//                               </div>
-//                             </div>
-//                           )}
-
-//                           {/* ── MESSAGE CONTENT ── */}
-//                           {msg.type === "payment" ? (
-//                             <div style={{ minWidth: 240, padding: 8 }}>
-//                               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-//                                 <span style={{ background: msg.paymentStatus === "paid" ? "#27ae60" : accent, padding: 8, borderRadius: "50%", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32 }}>
-//                                   {msg.paymentStatus === "paid" ? "✅" : "💳"}
-//                                 </span>
-//                                 <div style={{ fontSize: 15, fontWeight: 700, color: text }}>
-//                                   {msg.paymentStatus === "paid" ? "Payment Completed" : "Payment Request"}
-//                                 </div>
-//                               </div>
-
-//                               <button
-//                                 onClick={() => msg.paymentStatus !== "paid" && handlePayment(String(msg.id), msg.amount || 0)}
-//                                 disabled={msg.paymentStatus === "paid"}
-//                                 style={{ width: "100%", background: "none", border: "none", textAlign: "left", padding: 0, cursor: msg.paymentStatus === "paid" ? "default" : "pointer", transition: "transform 0.1s", opacity: msg.paymentStatus === "paid" ? 0.8 : 1 }}
-//                                 onMouseDown={e => msg.paymentStatus !== "paid" && (e.currentTarget.style.transform = "scale(0.98)")}
-//                                 onMouseUp={e => msg.paymentStatus !== "paid" && (e.currentTarget.style.transform = "scale(1)")}
-//                               >
-//                                 <div className="mono" style={{ fontSize: 36, fontWeight: 800, color: msg.paymentStatus === "paid" ? "#27ae60" : accent, marginBottom: 12 }}>
-//                                   {fmtCurrency(msg.amount || 0)}
-//                                 </div>
-//                                 <div style={{ fontSize: 14, color: "#fff", background: msg.paymentStatus === "paid" ? "#27ae60" : accent, padding: "12px 16px", borderRadius: 8, width: "100%", textAlign: "center", fontWeight: 700, boxShadow: msg.paymentStatus === "paid" ? "none" : "0 4px 12px rgba(196,92,26,0.3)" }}>
-//                                   {msg.paymentStatus === "paid" ? "Amount Received ✓" : "Pay securely via Razorpay →"}
-//                                 </div>
-//                               </button>
-//                             </div>
-//                           ) : msg.type === "doc" && msg.doc ? (
-//                             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-//                               {msg.doc.name?.match(/\.(jpeg|jpg|gif|png|webp)$/i) && msg.doc.url ? (
-//                                 <div style={{ position: "relative" }}>
-//                                   <img src={msg.doc.url} alt="attachment" className="doc-img" onClick={() => window.open(msg.doc?.url || "", "_blank")} />
-//                                   <button onClick={(e) => { e.stopPropagation(); handleDownload(msg.doc?.url || "", msg.doc?.name || "file"); }} style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", padding: 8, borderRadius: "50%" }}>⬇</button>
-//                                 </div>
-//                               ) : (
-//                                 <div className="doc-card" onClick={() => msg.doc?.url && window.open(msg.doc.url, '_blank')}>
-//                                   <div className="doc-icon" style={{ background: accent }}>{msg.doc.icon || "📄"}</div>
-//                                   <div style={{ flex: 1, minWidth: 100 }}>
-//                                     <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: text }}>{msg.doc.name}</div>
-//                                     <div style={{ fontSize: 12, color: textMid }}>{msg.doc.size}</div>
-//                                   </div>
-//                                   <button onClick={(e) => { e.stopPropagation(); handleDownload(msg.doc?.url || "", msg.doc?.name || "file"); }} style={{ background: dark ? "#333" : "#fff", border: `1px solid ${border}`, color: text, cursor: "pointer", padding: 8, borderRadius: 6 }}>⬇</button>
-//                                 </div>
-//                               )}
-//                               {msg.text && <span style={{ fontSize: 15, marginTop: 4 }}>{lang === "hi" ? msg.text : (msg.textEn || msg.text)}</span>}
-//                             </div>
-//                           ) : (
-//                             <div style={{ fontSize: 14, color: text, lineHeight: 1.6 }}>{lang === "hi" ? msg.text : (msg.textEn || msg.text)}</div>
-//                           )}
-
-//                           {/* Timestamps */}
-//                           <div style={{ padding: msg.type === "doc" ? "4px 10px 6px" : "0", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginTop: msg.type === "doc" ? 0 : 4 }}>
-//                             <span style={{ fontSize: 10, color: textLight }}>{msg.time}</span>
-//                             {isUser && <span style={{ fontSize: 12 }} className={msg.status === "seen" ? "tick-seen" : "tick-delivered"}>✓✓</span>}
-//                           </div>
-//                         </div>
-//                       </div>
-
-//                       {/* Hover Reply Button */}
-//                       <button
-//                         onClick={() => setReplyingTo(msg)}
-//                         style={{ opacity: 0, transition: "opacity 0.2s", background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: 4 }}
-//                         onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-//                         onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
-//                         className="msg-reply-btn"
-//                         title="Reply"
-//                       >
-//                         ↩️
-//                       </button>
-//                     </div>
-//                   </div>
-//                 );
-//               })}
-//               <div ref={msgEndRef} />
-//             </div>
-
-//             {/* ── MESSAGE INPUT ── */}
-//             <div style={{ background: surface, borderTop: `1px solid ${border}`, padding: "10px 14px", flexShrink: 0 }}>
-
-//               {/* ✨ PASTE REPLY BANNER HERE ✨ */}
-//               {replyingTo && (
-//                 <div style={{ background: surface2, borderLeft: `4px solid ${accent}`, padding: "8px 12px", borderRadius: "8px 8px 0 0", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, zIndex: 1, position: "relative" }}>
-//                   <div style={{ fontSize: 12 }}>
-//                     <div style={{ fontWeight: 700, color: accent }}>{lang === "hi" ? "जवाब दे रहे हैं:" : "Replying to"} {replyingTo.from === 'user' ? 'You' : 'Admin'}</div>
-//                     <div style={{ opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
-//                       {replyingTo.text || (replyingTo.type === "doc" ? "📄 Document" : "💳 Payment")}
-//                     </div>
-//                   </div>
-//                   <button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", cursor: "pointer", color: textLight, fontSize: 16 }}>✕</button>
-//                 </div>
-//               )}
-
-//               {/* ✨ EXISTING ATTACHED FILES PREVIEW ✨ */}
-//               {attachedFiles.length > 0 && (
-//                 <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-//                   {attachedFiles.map((f, i) => (
-//                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: surface2, border: `1px solid ${border}`, borderRadius: 8, padding: "4px 10px", fontSize: 12 }}>
-//                       <span>📄</span><span style={{ color: textMid }}>{(f as File).name}</span>
-//                       <button onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: textLight, fontSize: 14 }}>✕</button>
-//                     </div>
-//                   ))}
-//                 </div>
-//               )}
-
-//               {/* ✨ EXISTING TEXT AREA AND SEND BUTTON ✨ */}
-//               <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-//                 <button className="icon-btn" onClick={() => { const el = document.createElement("input"); el.type = "file"; el.multiple = true; el.onchange = e => setAttachedFiles(Array.from((e.target as HTMLInputElement).files || [])); el.click(); }}>📎</button>
-
-//                 <textarea
-//                   className="msg-input"
-//                   rows={1}
-//                   value={msgVal}
-//                   onChange={e => { setMsgVal(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px"; }}
-//                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-//                   placeholder={t.typeMsg}
-//                 />
-
-//                 <button className="send-btn" onClick={sendMessage} disabled={isSending || (!msgVal.trim() && attachedFiles.length === 0)} style={{ opacity: (isSending || (!msgVal.trim() && attachedFiles.length === 0)) ? 0.5 : 1 }}>
-//                   {isSending ? <div style={{ width: 20, height: 20, border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "pulse 1s linear infinite" }} /> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>}
-//                 </button>
-//               </div>
-//             </div>
-//           </div>
-//         ) : (
-//           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16, color: textMid }}>
-//             <div style={{ fontSize: 64, opacity: 0.3 }}>📬</div>
-//             <div style={{ fontSize: 18, fontFamily: "'Noto Serif Devanagari', serif", color: textMid }}>
-//               {lang === "hi" ? "कोई आवेदन चुनें" : "Select a request"}
-//             </div>
-//             <div style={{ fontSize: 13, color: textLight }}>{lang === "hi" ? "या नया आवेदन शुरू करें" : "or start a new request"}</div>
-//             <button onClick={() => setShowNew(true)} style={{ padding: "10px 24px", background: accent, border: "none", borderRadius: 8, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{t.newRequest} ✏️</button>
-//           </div>
-//         )}
-
-//         {/* ── TIMELINE PANEL ── */}
-//         {showTimeline && activeRequest && (
-//           <div style={{ width: 280, borderLeft: `1px solid ${border}`, background: surface, display: "flex", flexDirection: "column", flexShrink: 0, overflow: "hidden", zIndex: 100, position: "absolute", right: 0, height: "100%", boxShadow: "-4px 0 15px rgba(0,0,0,0.1)" }}>
-//             <div style={{ padding: "14px 16px", borderBottom: `1px solid ${border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-//               <span style={{ fontWeight: 700, fontSize: 14, color: text }}>📋 {t.timeline}</span>
-//               <button onClick={() => setShowTimeline(false)} style={{ background: "none", border: "none", cursor: "pointer", color: textMid, fontSize: 18 }}>✕</button>
-//             </div>
-//             <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-//               {activeRequest.timeline.map((ev: TimelineEvent, i: number) => (
-//                 <div key={i} style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-//                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-//                     <div className="timeline-dot" style={{ background: dark ? "#1e1208" : "#fff5ee", border: `2px solid ${i === activeRequest.timeline.length - 1 ? accent : border}` }}>
-//                       <span style={{ fontSize: 12 }}>{TIMELINE_ICONS[ev.event as keyof typeof TIMELINE_ICONS] || "📌"}</span>
-//                     </div>
-//                     {i < activeRequest.timeline.length - 1 && <div style={{ width: 2, flex: 1, background: border, marginTop: 4, minHeight: 20 }} />}
-//                   </div>
-//                   <div style={{ paddingTop: 4 }}>
-//                     <div style={{ fontSize: 13, fontWeight: 600, color: text }}>{lang === "hi" ? (ev.event === "submitted" ? "जमा किया गया" : ev.event === "seen" ? "देखा गया" : ev.event === "processing" ? "प्रक्रिया शुरू" : "पूर्ण") : ev.eventEn}</div>
-//                     <div style={{ fontSize: 11, color: textMid, marginTop: 2 }}>{lang === "hi" ? ev.time : ev.timeEn}</div>
-//                   </div>
-//                 </div>
-//               ))}
-//               {activeRequest.status !== "done" && (
-//                 <div style={{ display: "flex", gap: 12 }}>
-//                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-//                     <div className="timeline-dot" style={{ background: surface2, border: `2px dashed ${border}`, opacity: 0.5 }}>
-//                       <span style={{ fontSize: 12 }}>✅</span>
-//                     </div>
-//                   </div>
-//                   <div style={{ paddingTop: 4, opacity: 0.4 }}>
-//                     <div style={{ fontSize: 13, fontWeight: 600, color: text }}>{lang === "hi" ? "पूर्ण" : "Completed"}</div>
-//                     <div style={{ fontSize: 11, color: textMid }}>{lang === "hi" ? "जल्द आएगा" : "Coming soon"}</div>
-//                   </div>
-//                 </div>
-//               )}
-//             </div>
-//             {/* Status badge */}
-//             <div style={{ padding: "14px 16px", borderTop: `1px solid ${border}` }}>
-//               {(() => {
-//                 const sc = STATUS_CONFIG[activeRequest.status as keyof typeof STATUS_CONFIG]; return (
-//                   <div style={{ background: dark ? sc.bgDark : sc.bg, border: `1px solid ${dark ? sc.borderDark : sc.border}`, borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-//                     <span style={{ fontSize: 18 }}>{sc.icon}</span>
-//                     <div>
-//                       <div style={{ fontSize: 12, color: sc.color, fontWeight: 700 }}>{lang === "hi" ? sc.label : sc.labelEn}</div>
-//                       <div style={{ fontSize: 11, color: textMid }}>{(activeRequest as any).displayId || activeRequest.id.split('-')[0].toUpperCase()}</div>
-//                     </div>
-//                   </div>
-//                 );
-//               })()}
-//               {/* ✨ UPDATED GLOBAL PAYMENT BUTTON ✨ */}
-//               {(() => {
-//                 // Find the first unpaid payment message in the chat
-//                 const unpaidMsg = activeRequest.messages.find(m => m.type === "payment" && m.paymentStatus !== "paid");
-
-//                 if (unpaidMsg) {
-//                   return (
-//                     <button
-//                       onClick={() => handlePayment(String(unpaidMsg.id), unpaidMsg.amount || 0)}
-//                       style={{ width: "100%", marginTop: 10, padding: "10px", background: "#c47a10", border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.1s" }}
-//                       onMouseDown={e => e.currentTarget.style.transform = "scale(0.98)"}
-//                       onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
-//                     >
-//                       💳 {t.payNow} — {fmtCurrency(unpaidMsg.amount || 0)}
-//                     </button>
-//                   );
-//                 }
-//                 return null;
-//               })()}
-//             </div>
-//           </div>
-//         )}
-//       </div>
-
-//       {/* ── NEW REQUEST DRAWER ── */}
-//       {showNew && (
-//         <div className="new-drawer">
-//           <div className="new-drawer-backdrop" onClick={() => setShowNew(false)} />
-//           <div className="new-drawer-box">
-//             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-//               <div style={{ fontFamily: "'Noto Serif Devanagari', serif", fontSize: 20, fontWeight: 700, color: text }}>
-//                 {t.newRequest} ✏️
-//               </div>
-//               <button onClick={() => setShowNew(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: textMid }}>✕</button>
-//             </div>
-
-//             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-//               {/* Service select */}
-//               <div>
-//                 <label style={{ fontSize: 12, fontWeight: 600, color: textMid, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t.serviceType}</label>
-//                 <select value={newService} onChange={e => setNewService(e.target.value)} className="csc-input" style={{ appearance: "none", cursor: "pointer" }}>
-//                   <option value="">{lang === "hi" ? "सेवा चुनें..." : "Select service..."}</option>
-//                   {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
-//                 </select>
-//               </div>
-
-//               {/* Title */}
-//               <div>
-//                 <label style={{ fontSize: 12, fontWeight: 600, color: textMid, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t.requestTitle}</label>
-//                 <input value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder={lang === "hi" ? "जैसे: आधार में नाम सुधार" : "e.g. Name correction in Aadhaar"} className="csc-input" />
-//               </div>
-
-//               {/* Description */}
-//               <div>
-//                 <label style={{ fontSize: 12, fontWeight: 600, color: textMid, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t.requestDesc}</label>
-//                 <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder={lang === "hi" ? "पूरी जानकारी लिखें..." : "Write details..."} className="csc-input" rows={3} style={{ resize: "vertical", lineHeight: 1.6 }} />
-//               </div>
-
-//               {/* Priority */}
-//               <div>
-//                 <label style={{ fontSize: 12, fontWeight: 600, color: textMid, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t.priority}</label>
-//                 <div style={{ display: "flex", gap: 8 }}>
-//                   {["regular", "prepaid"].map(p => (
-//                     <button key={p} onClick={() => setNewPriority(p)} className={`priority-opt ${newPriority === p ? "selected" : ""}`} style={{ background: newPriority === p ? (dark ? "#1e1208" : "#fff5ee") : "transparent", borderColor: newPriority === p ? accent : border, color: newPriority === p ? accent : textMid, fontWeight: newPriority === p ? 700 : 400 }}>
-//                       <div style={{ fontSize: 18, marginBottom: 4 }}>{p === "regular" ? "🕐" : "⚡"}</div>
-//                       <div style={{ fontSize: 12 }}>{p === "regular" ? t.regular : t.prepaid}</div>
-//                     </button>
-//                   ))}
-//                 </div>
-//               </div>
-
-//               {/* Upload */}
-//               <div>
-//                 <label style={{ fontSize: 12, fontWeight: 600, color: textMid, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t.uploadDoc}</label>
-//                 <div className="drop-zone" onDragOver={e => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={e => { e.preventDefault(); setIsDragOver(false); setUploadedFiles(Array.from((e.dataTransfer as DataTransfer).files)); }} onClick={() => { const el = document.createElement("input"); el.type = "file"; el.multiple = true; el.accept = ".pdf,.jpg,.jpeg,.png,.webp"; el.onchange = (event) => { const target = event.target as HTMLInputElement; setUploadedFiles(Array.from(target.files || [])); }; el.click(); }}>
-//                   <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-//                   <div style={{ fontSize: 13, color: textMid }}>{t.dragDrop}</div>
-//                   <div style={{ fontSize: 11, color: textLight, marginTop: 4 }}>PDF, JPG, PNG</div>
-//                 </div>
-//                 {uploadedFiles.length > 0 && (
-//                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-//                     {uploadedFiles.map((f, i) => (
-//                       <div key={i} className="doc-card">
-//                         <span>📄</span>
-//                         <span style={{ flex: 1, fontSize: 13, color: text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
-//                         <button onClick={(e) => { e.stopPropagation(); setUploadedFiles(prev => prev.filter((_, j) => j !== i)); }} style={{ background: "none", border: "none", cursor: "pointer", color: textLight, fontSize: 16 }}>✕</button>
-//                       </div>
-//                     ))}
-//                   </div>
-//                 )}
-//               </div>
-
-//               <button onClick={submitNewRequest} disabled={!newTitle || !newService} style={{ padding: "14px", background: newTitle && newService ? accent : (dark ? "#2a2020" : "#e0d8d0"), border: "none", borderRadius: 10, color: newTitle && newService ? "#fff" : textLight, fontSize: 15, fontWeight: 700, cursor: newTitle && newService ? "pointer" : "not-allowed", fontFamily: "inherit", transition: "all 0.2s", marginTop: 4 }}>
-//                 {t.submitRequest} →
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {/* ── SIDEBAR PANEL ── */}
-//       {sidebarOpen && (
-//         <div className="sidebar-overlay">
-//           <div className="sidebar-panel">
-//             <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${border}`, marginBottom: 8 }}>
-//               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-//                 <div className="avatar" style={{ width: 48, height: 48, background: dark ? "#1e1208" : "#fde8d8", color: accent, fontSize: 20 }}>
-//                   {user?.name ? user.name[0].toUpperCase() : "👤"}
-//                 </div>
-//                 <div>
-//                   <div style={{ fontWeight: 700, fontSize: 15, color: text }}>
-//                     {user?.name || (lang === "hi" ? "उपयोगकर्ता" : "User")}
-//                   </div>
-//                   <div style={{ fontSize: 12, color: textMid }}>{user?.mobile ? `+91 ${user.mobile}` : user?.email}</div>
-//                 </div>
-//               </div>
-//               <div style={{ marginTop: 12, background: dark ? "#1a1208" : "#fff5ee", border: `1px solid ${dark ? "#5c3d0a" : "#f0d090"}`, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-//                 <div>
-//                   <div style={{ fontSize: 11, color: textMid }}>{t.wallet}</div>
-//                   <div style={{ fontSize: 22, fontWeight: 700, color: accent, fontFamily: "'Noto Serif Devanagari', serif" }}>₹ {user?.wallet_balance || 0}</div>
-//                 </div>
-//                 <button style={{ background: accent, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 700, padding: "6px 14px", cursor: "pointer", fontFamily: "inherit" }}>
-//                   {lang === "hi" ? "जोड़ें" : "Add"}
-//                 </button>
-//               </div>
-//             </div>
-
-//             {/* Dynamic Buttons (Navigation wired up!) */}
-//             {[["📋", t.myRequests], ["🔔", t.notifications], ["👤", t.profile], ["🚪", t.logout]].map(([ic, label]) => (
-//               <button key={label}
-//                 onClick={() => {
-//                   if (label === t.logout) logout();
-//                   else if (label === t.profile) window.location.href = "/dashboard/profile";
-//                   else if (label === t.myRequests) { window.location.href = "/dashboard"; setSidebarOpen(false); }
-//                 }}
-//                 style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer", color: text, fontSize: 15, fontFamily: "inherit", transition: "background 0.15s" }}
-//                 onMouseEnter={e => e.currentTarget.style.background = surface2}
-//                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-//                 <span style={{ fontSize: 20 }}>{ic}</span>{label}
-//               </button>
-//             ))}
-//           </div>
-//           <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
-//         </div>
-//       )}
-
-//       {/* ── NOTIFICATIONS PANEL ── */}
-//       {notifOpen && (
-//         <div style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", justifyContent: "flex-end" }}>
-//           <div style={{ flex: 1 }} onClick={() => setNotifOpen(false)} />
-//           <div style={{ width: 320, background: surface, borderLeft: `1px solid ${border}`, height: "100%", display: "flex", flexDirection: "column", animation: "slideIn 0.25s ease" }}>
-//             <div style={{ padding: "16px 20px", borderBottom: `1px solid ${border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-//               <span style={{ fontWeight: 700, fontSize: 16, color: text }}>🔔 {t.notifications}</span>
-//               <button onClick={() => setNotifOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: textMid, fontSize: 20 }}>✕</button>
-//             </div>
-//             <div style={{ flex: 1, overflowY: "auto" }}>
-//               {notifications.length === 0 ? (
-//                 <div style={{ padding: 32, textAlign: "center", color: textMid, fontSize: 13 }}>
-//                   {lang === "hi" ? "कोई नई सूचना नहीं" : "No new notifications"}
-//                 </div>
-//               ) : (
-//                 notifications.map((n) => {
-//                   const iconData =
-//                     n.type === 'document_viewed' ? { icon: "👁️", color: accentGreen } :
-//                       n.type === 'status_changed' ? { icon: "⚙️", color: "#1a5aa0" } :
-//                         { icon: "🔔", color: accent };
-
-//                   return (
-//                     <div key={n.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${border}`, display: "flex", gap: 12, cursor: "pointer", transition: "background 0.15s", background: n.is_read ? "transparent" : (dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)") }}>
-//                       <div style={{ width: 36, height: 36, borderRadius: "50%", background: dark ? "#1a1a1a" : "#f5f0e8", border: `1.5px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-//                         {iconData.icon}
-//                       </div>
-//                       <div style={{ flex: 1 }}>
-//                         <div style={{ fontSize: 13, fontWeight: n.is_read ? 500 : 700, color: text, lineHeight: 1.4 }}>
-//                           {lang === "hi" ? (n.title_hi || n.title) : n.title}
-//                         </div>
-//                         <div style={{ fontSize: 12, color: textMid, marginTop: 2 }}>
-//                           {lang === "hi" ? (n.body_hi || n.body) : n.body}
-//                         </div>
-//                         <div style={{ fontSize: 10, color: textLight, marginTop: 4 }}>
-//                           {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-//                         </div>
-//                       </div>
-//                       {!n.is_read && <div style={{ width: 8, height: 8, borderRadius: "50%", background: accent, alignSelf: "center" }} />}
-//                     </div>
-//                   );
-//                 })
-//               )}
-//             </div>
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 "use client";
 
 import { useState, useEffect, useRef, type DragEvent, useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
-import { fetchMyRequestsAction, createRequestAction, sendChatMessageAction } from "@/app/actions/requests";
+import { fetchMyRequestsAction, createRequestAction, sendChatMessageAction, sendFormMessageAction } from "@/app/actions/requests";
 import { updateUserProfile } from "../actions/user";
 import { uploadChatFileAction } from "../actions/storage";
 import { fetchNotificationsAction, markNotificationsReadAction } from "@/app/actions/notifications";
 import { io, Socket } from "socket.io-client";
 import { createRazorpayOrderAction, verifyRazorpayPaymentAction } from "@/app/actions/payment";
 import { fetchMyAddressesAction, addAddressAction } from "@/app/actions/address"; // ✨ Add this
+import { getFormsAction } from "../actions/forms";
+import { getMyCertificatesAction } from "../actions/certificates";
 
 // ════════════════════════════════════════════════════════════════════════════════
 // TYPES (Preserved Exactly)
@@ -1353,6 +58,9 @@ interface Message {
   status?: "seen" | "delivered";
   replyToId?: string | number | null;
   reply_to_msg?: Message;
+  formId?: string;
+  formData?: Record<string, string>;
+  formTitle?: string;
 }
 
 interface ResolvedBy {
@@ -1380,6 +88,10 @@ interface Request {
   messages: Message[];
   timeline: TimelineEvent[];
 }
+
+// 2. Add these Form Interfaces right below your existing interfaces:
+interface FormField { id: string; label: string; required: boolean; }
+interface DbForm { id: string; title: string; price: number; requires_document: boolean; document_label: string | null; fields: FormField[]; }
 
 // ════════════════════════════════════════════════════════════════════════════════
 // UTILS (Preserved + Reference Utils)
@@ -1425,7 +137,7 @@ const LANG = {
     pin: "पिनकोड", saveAddr: "पता सेव करें", trackLive: "लाइव ट्रैक करें 🛵",
   },
   en: {
-    appName: "Shreelal Jan Seva Kendra",
+    appName: "Srilal Sahaj Jan Seva Kendra",
     myRequests: "My Requests", newRequest: "New Request", search: "Search...",
     all: "All", pending: "Pending", processing: "Processing", done: "Done",
     sent: "Sent", seen: "Seen", online: "Online", today: "Today", yesterday: "Yesterday",
@@ -1670,11 +382,12 @@ type ThemeTokens = typeof THEMES.light;
 // NAV LINKS (User Specified)
 // ════════════════════════════════════════════════════════════════════════════════
 const NAV_LINKS = [
-  { href: "/admin", icon: "🏛️", label: "Admin" },
-  { href: "/posts", icon: "✏️", label: "Posts" },
-  { href: "/galary", icon: "🖼️", label: "Gallery" },
-  { href: "/notifications", icon: "🔔", label: "Notifications" },
-  { href: "/dashboard/profile", icon: "👤", label: "Profile" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard" : "http://localhost:3000/dashboard", icon: "📱", label: "Dashboard" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/posts" : "http://localhost:3000/posts", icon: "✏️", label: "Posts" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/galary" : "http://localhost:3000/galary", icon: "🖼️", label: "Gallery" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/notifications" : "http://localhost:3000/notifications", icon: "🔔", label: "Notifications" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard/profile" : "http://localhost:3000/dashboard/profile", icon: "👤", label: "Profile" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/status" : "http://localhost:3000/status", icon: "📊", label: "Status" },
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1807,7 +520,7 @@ select.inp option{background:${T.modalBg};color:${T.inputText};}
 .sec-hdr-txt{font-size:.75rem;font-weight:800;color:${T.sectionGradText};text-transform:uppercase;letter-spacing:.07em;}
 
 /* ── BUBBLE ── */
-.bubble{max-width:68%;padding:10px 13px;border-radius:13px;position:relative;animation:bub .2s ease;}
+.bubble{max-width:100%; min-width:100%; padding:10px 13px;border-radius:13px;position:relative;animation:bub .2s ease;}
 .b-admin{background:${T.bubbleAdminBg};border:1px solid ${T.bubbleAdminBorder};color:${T.bubbleAdminText};border-radius:13px 13px 3px 13px;}
 .b-user{background:${T.bubbleUserBg};border:1px solid ${T.bubbleUserBorder};color:${T.bubbleUserText};border-radius:13px 13px 13px 3px;}
 
@@ -1915,8 +628,19 @@ export default function CSCUserDashboard() {
   const [showAddAddr, setShowAddAddr] = useState(false);
   const [newAddr, setNewAddr] = useState({ label: "", full: "", pin: "" });
 
+  // ✨ Form States
+  const [availableForms, setAvailableForms] = useState<DbForm[]>([]);
+  const [showFormsMenu, setShowFormsMenu] = useState(false);
+  const [activeFormFill, setActiveFormFill] = useState<DbForm | null>(null);
+  const [formInputs, setFormInputs] = useState<Record<string, string>>({});
+  const [formDocFile, setFormDocFile] = useState<File | null>(null);
+
   // Mobile view state
   const [showMobileChat, setShowMobileChat] = useState(false);
+
+  // 2. Add these states near your other states (around line 250):
+  const [myCerts, setMyCerts] = useState<any[]>([]);
+  const [showCertsModal, setShowCertsModal] = useState(false);
 
   const msgEndRef = useRef<HTMLDivElement>(null);
 
@@ -1960,6 +684,8 @@ export default function CSCUserDashboard() {
       loadRequests();
       fetchNotificationsAction().then((data) => setNotifications(data as any));
       fetchMyAddressesAction().then(data => { setAddresses(data); if (data.length > 0) setSelectedAddr(data[0].id); });
+      getFormsAction().then((data) => setAvailableForms(data as any));
+      getMyCertificatesAction().then(data => setMyCerts(data || [])).catch(console.error);
     }
   }, [isLoggedIn, loadRequests]);
 
@@ -1989,7 +715,11 @@ export default function CSCUserDashboard() {
         date: "today", type: newMsg.message_type || "text",
         doc: (newMsg.doc_url || newMsg.file_url) ? { name: newMsg.doc_name || newMsg.file_name, size: newMsg.doc_size || newMsg.file_size, icon: "📄", url: newMsg.doc_url || newMsg.file_url } : undefined,
         amount: newMsg.payment_amount, replyToId: newMsg.reply_to_id || null,
-        adminName: newMsg.users?.name, adminRole: newMsg.users?.role
+        adminName: newMsg.users?.name, adminRole: newMsg.users?.role,
+        // Add these inside the formattedMsg object in handleNewMessage:
+        formId: newMsg.form_id,
+        formData: newMsg.form_data,
+        formTitle: newMsg.forms?.title || newMsg.form_title, // We pass form_title via socket
       };
       setRequests(prev => prev.map(req => {
         if (req.id !== newMsg.request_id) return req;
@@ -2009,6 +739,43 @@ export default function CSCUserDashboard() {
     socket.on("new_message", handleNewMessage);
     return () => { socket.off("new_message", handleNewMessage); };
   }, [activeReqId, socket]);
+
+  // ✨ REAL-TIME DESKTOP NOTIFICATIONS (SOCKET.IO)
+  useEffect(() => {
+    if (!socket || !user || requests.length === 0) return;
+
+    // Ask browser for permission
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    const handleGlobalAlert = (newMsg: any) => {
+      // 1. Verify this message belongs to ONE of the user's requests
+      const isMyRequest = requests.some(r => r.id === newMsg.request_id);
+      if (!isMyRequest) return;
+
+      // 2. Only notify if the sender is an admin
+      if (newMsg.sender_role !== "user") {
+        // Play sound
+        const audio = new Audio('/notify.mp3');
+        audio.play().catch(err => console.log("Audio play blocked", err));
+
+        // Show Desktop Popup (Only if they are on another tab)
+        if (Notification.permission === "granted" && document.hidden) {
+          new Notification("New Message from Support", {
+            body: newMsg.content || "📎 Sent a new attachment or form",
+            icon: "/favicon.ico"
+          });
+        }
+
+        // Refresh the sidebar instantly
+        loadRequests();
+      }
+    };
+
+    socket.on("global_message_alert", handleGlobalAlert);
+    return () => { socket.off("global_message_alert", handleGlobalAlert); };
+  }, [socket, user, requests, loadRequests]);
 
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [activeRequest?.messages]);
 
@@ -2075,7 +842,7 @@ export default function CSCUserDashboard() {
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderRes.order.amount, currency: "INR",
-        name: "CSC Shambhuganj - Shrilal Yadav",
+        name: "CSC Shambhuganj - Srilal Yadav",
         description: `Payment for ${activeRequest.title}`,
         order_id: orderRes.order.id,
         prefill: { name: user.name || "", contact: user.mobile || "", email: user.email || "" },
@@ -2121,6 +888,58 @@ export default function CSCUserDashboard() {
       setMsgVal(""); setAttachedFiles([]); setReplyingTo(null);
     } catch (err: any) { alert("Failed to send message: " + err.message); }
     finally { setIsSending(false); }
+  };
+
+  const handleSendForm = async () => {
+    if (!activeRequest || !user || !activeFormFill) return;
+
+    // Validate Required Fields
+    for (const field of activeFormFill.fields) {
+      if (field.required && !formInputs[field.label]) {
+        return alert(`Please fill the required field: ${field.label}`);
+      }
+    }
+    if (activeFormFill.requires_document && !formDocFile) {
+      return alert(`Please attach the required document: ${activeFormFill.document_label}`);
+    }
+
+    setIsSending(true);
+    try {
+      let docUrl, docName, docSize;
+
+      // Upload document if attached
+      if (formDocFile) {
+        const formData = new FormData();
+        formData.append("file", formDocFile);
+        formData.append("requestId", activeRequest.id);
+        const uploadResult = await uploadChatFileAction(formData);
+        if (!uploadResult.success) throw new Error(uploadResult.error);
+        docUrl = uploadResult.url;
+        docName = uploadResult.name;
+        docSize = formatBytes(formDocFile.size);
+      }
+
+      // Save to DB
+      await sendFormMessageAction(activeRequest.id, activeFormFill.id, formInputs, docUrl, docName, docSize);
+
+      // Send Socket Event
+      const msgPayload = {
+        id: `temp-${Date.now()}`, request_id: activeRequest.id, sender_id: user.id, sender_role: "user",
+        message_type: "form", form_id: activeFormFill.id, form_data: formInputs, form_title: activeFormFill.title,
+        doc_url: docUrl, doc_name: docName, doc_size: docSize,
+        created_at: new Date().toISOString(), users: { name: user.name }
+      };
+      socket?.emit("send_message", msgPayload);
+      socket?.emit("trigger_queue_refresh");
+
+      setActiveFormFill(null);
+      setFormInputs({});
+      setFormDocFile(null);
+    } catch (err: any) {
+      alert("Failed to send form: " + err.message);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const submitNewRequest = async () => {
@@ -2171,7 +990,7 @@ export default function CSCUserDashboard() {
             <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
             <div>
               <div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
-                Shrilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+                Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
               </div>
               <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em" }}>USER PORTAL</div>
             </div>
@@ -2273,18 +1092,62 @@ export default function CSCUserDashboard() {
                     {req.status === "pending" && <span className="pulse-dot" style={{ position: "absolute", bottom: 1, right: 1, width: 9, height: 9, borderRadius: "50%", background: sc.color, border: `2px solid ${T.sidebarBg}` }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13.5, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lang === "hi" ? req.title : req.titleEn}</span>
-                      <span style={{ fontSize: 11, color: T.textMuted, flexShrink: 0, marginLeft: 8 }}>{req.lastTime}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>
-                      {lang === "hi" ? req.lastMsg : req.lastMsgEn}
-                    </div>
+                    {/* ✨ WhatsApp Logic */}
+                    {(() => {
+                      const lastMsgObj = req.messages?.[req.messages.length - 1];
+                      const isUnreadActual = req.unread > 0;
+
+                      let previewText = lang === "hi" ? req.lastMsg : req.lastMsgEn;
+                      if (lastMsgObj) {
+                        if (lastMsgObj.type === "text") previewText = lastMsgObj.text || "";
+                        else if (lastMsgObj.type === "form") previewText = "📝 Form Received";
+                        else if (lastMsgObj.type === "payment") previewText = "💳 Payment Request";
+                        else if (lastMsgObj.doc) previewText = "📎 Document Attached";
+                      }
+
+                      return (
+                        <>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                            <span style={{ fontWeight: 700, fontSize: 13.5, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {lang === "hi" ? req.title : req.titleEn}
+                            </span>
+
+                            {/* ✨ Time of Last Message */}
+                            <span style={{ fontSize: 11, color: isUnreadActual ? "#10b981" : T.textMuted, fontWeight: isUnreadActual ? 700 : 500, flexShrink: 0, marginLeft: 8 }}>
+                              {lastMsgObj ? lastMsgObj.time : req.lastTime}
+                            </span>
+                          </div>
+
+                          {/* ✨ WhatsApp-Style Last Message Preview & Unread Dot */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                            <div style={{
+                              fontSize: 12,
+                              color: isUnreadActual ? T.textPrimary : T.textSecondary,
+                              fontWeight: isUnreadActual ? 600 : 400,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              flex: 1,
+                              paddingRight: 10
+                            }}>
+                              {previewText}
+                            </div>
+
+                            {isUnreadActual && (
+                              <span style={{ minWidth: 18, height: 18, borderRadius: 9, background: "#10b981", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px", flexShrink: 0, boxShadow: "0 0 8px rgba(16, 185, 129, 0.4)" }}>
+                                {req.unread}
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+
+                    {/* Status Pill */}
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 9px", borderRadius: 20, fontSize: "0.65rem", fontWeight: 700, border: "1.5px solid", textTransform: "uppercase", letterSpacing: "0.04em", background: isDark ? sc.bgDark : sc.bg, color: sc.color, borderColor: isDark ? sc.borderDark : sc.border }}>
                         {sc.icon} {lang === "hi" ? sc.label : sc.labelEn}
                       </span>
-                      {req.unread > 0 && <span style={{ minWidth: 20, height: 20, borderRadius: 10, background: T.accent, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{req.unread}</span>}
                     </div>
                   </div>
                 </div>
@@ -2407,23 +1270,81 @@ export default function CSCUserDashboard() {
                           )}
 
                           {/* Payment */}
+                          {/* Payment */}
                           {msg.type === "payment" ? (
-                            <div style={{ minWidth: 230, background: msg.paymentStatus === "paid" ? T.payPaidGrad : T.payPendingGrad, borderRadius: 11, padding: "16px 18px", margin: "-10px -13px", color: "#fff", position: "relative", overflow: "hidden" }}>
+                            <div style={{ width: "100%", boxSizing: "border-box", background: msg.paymentStatus === "paid" ? T.payPaidGrad : T.payPendingGrad, borderRadius: 8, padding: "14px", color: "#fff", position: "relative", overflow: "hidden", marginTop: 4, animation: "fadeUp 0.3s ease" }}>
                               <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
+
                               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                   {msg.paymentStatus === "paid" ? <Ico.Check /> : <Ico.Pay />}
                                 </div>
-                                <div>
-                                  <div style={{ fontSize: 11, opacity: 0.75, fontWeight: 600 }}>{msg.paymentStatus === "paid" ? "Payment Received" : "Payment Required"}</div>
-                                  <div className="mono" style={{ fontSize: 22, fontWeight: 800 }}>{fmtCurrency(msg.amount || 0)}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 10, opacity: 0.9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                    {msg.paymentStatus === "paid" ? "Payment Received" : "Payment Required"}
+                                  </div>
+                                  <div className="mono" style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.1, marginTop: 2 }}>
+                                    {fmtCurrency(msg.amount || 0)}
+                                  </div>
                                 </div>
                               </div>
-                              {msg.paymentStatus !== "paid" && <p style={{ fontSize: 11, opacity: 0.85, marginBottom: 12 }}>Secure payment powered by Razorpay</p>}
-                              <button className="btn" style={{ width: "100%", padding: 12, border: "none", borderRadius: 10, background: msg.paymentStatus === "paid" ? "linear-gradient(135deg,#16a34a,#15803d)" : "linear-gradient(135deg,#f59e0b,#d97706)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: msg.paymentStatus === "paid" ? "default" : "pointer", fontFamily: "inherit", boxShadow: msg.paymentStatus === "paid" ? "0 4px 12px rgba(21,128,61,0.3)" : "0 4px 12px rgba(245,158,11,0.3)" }}
-                                onClick={() => msg.paymentStatus !== "paid" && handlePayment(String(msg.id), msg.amount || 0)} disabled={msg.paymentStatus === "paid"}>
-                                {msg.paymentStatus === "paid" ? (<>✅ Amount Received</>) : (<>💳 {t.payNow} via Razorpay</>)}
+
+                              {msg.paymentStatus !== "paid" && (
+                                <div style={{ fontSize: 11, opacity: 0.9, marginBottom: 12, lineHeight: 1.4 }}>
+                                  Secure payment powered by Razorpay
+                                </div>
+                              )}
+
+                              <button className="btn"
+                                style={{ width: "100%", padding: "10px", border: "none", borderRadius: 8, background: msg.paymentStatus === "paid" ? "rgba(255,255,255,0.2)" : "#ffffff", color: msg.paymentStatus === "paid" ? "#ffffff" : "#d97706", fontSize: 13, fontWeight: 800, cursor: msg.paymentStatus === "paid" ? "default" : "pointer", fontFamily: "inherit", display: "flex", justifyContent: "center", alignItems: "center", gap: 6, boxShadow: msg.paymentStatus === "paid" ? "none" : "0 4px 12px rgba(0,0,0,0.15)" }}
+                                onClick={() => msg.paymentStatus !== "paid" && handlePayment(String(msg.id), msg.amount || 0)}
+                                disabled={msg.paymentStatus === "paid"}>
+                                {msg.paymentStatus === "paid" ? (<>✅ Amount Received</>) : (<>💳 Pay Now</>)}
                               </button>
+                            </div>
+                          ) : msg.type === "form" ? (
+                            <div style={{ width: "100%", animation: "fadeUp 0.3s ease" }}>
+
+                              {/* Header */}
+                              <div style={{ display: "flex", gap: 10, alignItems: "center", borderBottom: `1px dashed ${T.divider}`, paddingBottom: 10, marginBottom: 12 }}>
+                                <div style={{ background: T.accentLight, padding: "6px 8px", borderRadius: 8, fontSize: 16 }}>📝</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 800, color: T.accent }}>{msg.formTitle || "Form Submission"}</div>
+                                  <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Submitted Data</div>
+                                </div>
+                              </div>
+
+                              {/* Form Fields */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                {msg.formData && Object.entries(msg.formData).map(([key, val]) => (
+                                  <div key={key} style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>{key}</div>
+                                    <div style={{
+                                      fontSize: 13, color: T.textPrimary, fontWeight: 600,
+                                      background: isDark ? "rgba(0,0,0,0.2)" : "#fff",
+                                      padding: "6px 10px", borderRadius: 6,
+                                      border: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : T.inputBorder}`,
+                                      width: "100%", boxSizing: "border-box",
+                                      wordBreak: "break-word", overflowWrap: "anywhere"
+                                    }}>
+                                      {String(val)}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Document Attachment */}
+                              {msg.doc && (
+                                <div onClick={() => handleDownload(msg.doc!.url!, msg.doc!.name || "document")} style={{ marginTop: 12, background: isDark ? "rgba(0,0,0,0.2)" : "#fff", border: `1px solid ${isDark ? "rgba(255,255,255,0.05)" : T.inputBorder}`, borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.borderColor = T.accent} onMouseLeave={e => e.currentTarget.style.borderColor = isDark ? "rgba(255,255,255,0.05)" : T.inputBorder}>
+                                  <span style={{ fontSize: 16 }}>📎</span>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.doc.name}</div>
+                                    <div style={{ fontSize: 10, color: T.textMuted }}>{msg.doc.size}</div>
+                                  </div>
+                                  <span style={{ fontSize: 16, color: T.textMuted }}>⬇</span>
+                                </div>
+                              )}
+
                             </div>
                           ) : msg.type === "doc" && msg.doc ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "4px" }}>
@@ -2500,6 +1421,26 @@ export default function CSCUserDashboard() {
                 <button className="btn btn-g" style={{ padding: "7px 11px", fontSize: 12 }} onClick={() => { const el = document.createElement("input"); el.type = "file"; el.multiple = true; el.onchange = e => setAttachedFiles(Array.from((e.target as HTMLInputElement).files || [])); el.click(); }} title={t.attach}>
                   <Ico.Attach />
                 </button>
+                {/* ✨ Forms Menu Button */}
+                <div style={{ position: "relative" }}>
+                  <button className="btn btn-g" style={{ padding: "7px 11px", fontSize: 12 }} onClick={() => setShowFormsMenu(!showFormsMenu)} title="Fill a Form">
+                    📋
+                  </button>
+                  {showFormsMenu && (
+                    <div style={{ position: "absolute", bottom: "120%", left: 0, background: T.modalBg, border: `1px solid ${T.inputBorder}`, borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", gap: 4, width: 240, boxShadow: "0 10px 40px rgba(0,0,0,0.2)", zIndex: 50, animation: "fadeUp 0.2s ease" }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: T.textMuted, textTransform: "uppercase", padding: "4px 8px", marginBottom: 4 }}>Select a Form</div>
+                      {availableForms.length === 0 ? (
+                        <div style={{ fontSize: 12, padding: 8, color: T.textMuted, textAlign: "center" }}>No forms available</div>
+                      ) : (
+                        availableForms.map(f => (
+                          <button key={f.id} onClick={() => { setActiveFormFill(f); setShowFormsMenu(false); setFormInputs({}); setFormDocFile(null); }} style={{ textAlign: "left", padding: "10px", background: "transparent", border: "none", borderRadius: 8, cursor: "pointer", color: T.textPrimary, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, transition: "background 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = T.rowHover} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                            <span style={{ fontSize: 16 }}>📝</span> {f.title}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
                 <textarea className="inp" rows={1} value={msgVal}
                   onChange={e => { setMsgVal(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px"; }}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
@@ -2668,19 +1609,19 @@ export default function CSCUserDashboard() {
                         <span style={{ fontSize: "0.68rem", fontWeight: 800, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{t.selectAddr} *</span>
                         {!showAddAddr && <button onClick={() => setShowAddAddr(true)} style={{ background: "none", border: "none", color: T.accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{t.addAddr}</button>}
                       </div>
-                      
+
                       {showAddAddr ? (
                         <div style={{ border: `1px solid ${T.accentBorder}`, padding: 12, borderRadius: 8, background: isDark ? "rgba(245,158,11,0.05)" : "#fff" }}>
-                          <input placeholder={t.addrLabel} className="inp" style={{ marginBottom: 8, padding: 8, fontSize: 13 }} value={newAddr.label} onChange={e => setNewAddr({...newAddr, label: e.target.value})} />
-                          <textarea placeholder={t.addrText} className="inp" style={{ marginBottom: 8, padding: 8, fontSize: 13 }} rows={2} value={newAddr.full} onChange={e => setNewAddr({...newAddr, full: e.target.value})} />
-                          <input placeholder={t.pin} className="inp" style={{ marginBottom: 8, padding: 8, fontSize: 13 }} value={newAddr.pin} onChange={e => setNewAddr({...newAddr, pin: e.target.value})} />
+                          <input placeholder={t.addrLabel} className="inp" style={{ marginBottom: 8, padding: 8, fontSize: 13 }} value={newAddr.label} onChange={e => setNewAddr({ ...newAddr, label: e.target.value })} />
+                          <textarea placeholder={t.addrText} className="inp" style={{ marginBottom: 8, padding: 8, fontSize: 13 }} rows={2} value={newAddr.full} onChange={e => setNewAddr({ ...newAddr, full: e.target.value })} />
+                          <input placeholder={t.pin} className="inp" style={{ marginBottom: 8, padding: 8, fontSize: 13 }} value={newAddr.pin} onChange={e => setNewAddr({ ...newAddr, pin: e.target.value })} />
                           <div style={{ display: "flex", gap: 8 }}>
                             <button className="btn btn-g" style={{ flex: 1 }} onClick={() => setShowAddAddr(false)}>{t.cancel}</button>
-                            <button className="btn btn-p" style={{ flex: 1 }} disabled={!newAddr.label || !newAddr.full} onClick={async () => { 
+                            <button className="btn btn-p" style={{ flex: 1 }} disabled={!newAddr.label || !newAddr.full} onClick={async () => {
                               try {
                                 const adr = await addAddressAction({ label: newAddr.label, full_address: newAddr.full, pincode: newAddr.pin });
-                                setAddresses([adr, ...addresses]); setSelectedAddr(adr.id); setShowAddAddr(false); setNewAddr({label: "", full: "", pin: ""});
-                              } catch(e) { alert("Failed to save address"); }
+                                setAddresses([adr, ...addresses]); setSelectedAddr(adr.id); setShowAddAddr(false); setNewAddr({ label: "", full: "", pin: "" });
+                              } catch (e) { alert("Failed to save address"); }
                             }}>{t.saveAddr}</button>
                           </div>
                         </div>
@@ -2700,6 +1641,87 @@ export default function CSCUserDashboard() {
                 {t.submitRequest} →
               </button> */}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════
+          FORM FILLING MODAL (STUNNING UI)
+      ════════════════════════════════════════════════════════ */}
+      {activeFormFill && (
+        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setActiveFormFill(null); }}>
+          <div className="modal-bx" style={{ maxWidth: 480, maxHeight: "90vh", overflowY: "auto", padding: 0 }}>
+
+            {/* Header */}
+            <div style={{ background: T.sectionGrad, padding: "24px", color: T.sectionGradText, borderRadius: "14px 14px 0 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.8, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Secure Form Submission</div>
+                  <h2 className="serif" style={{ margin: 0, fontSize: 24, lineHeight: 1.2 }}>{activeFormFill.title}</h2>
+                </div>
+                <button onClick={() => setActiveFormFill(null)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", cursor: "pointer", padding: 6, borderRadius: 50, display: "flex" }}><Ico.X /></button>
+              </div>
+            </div>
+
+            {/* Caution Banner */}
+            <div style={{ background: "rgba(245, 158, 11, 0.1)", borderBottom: "1px solid rgba(245, 158, 11, 0.2)", padding: "12px 24px", display: "flex", gap: 10, alignItems: "center", color: "#d97706", fontSize: 12, fontWeight: 700 }}>
+              <span style={{ fontSize: 16 }}>⚠️</span> Please verify all details carefully. Submitted forms are final and cannot be edited.
+            </div>
+
+            {/* Form Fields */}
+            <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {activeFormFill.fields.map(field => (
+                <div key={field.id}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: T.textMuted, textTransform: "uppercase", marginBottom: 6 }}>
+                    {field.label} {field.required && <span style={{ color: "#ef4444" }}>*</span>}
+                  </label>
+                  <input
+                    className="inp"
+                    placeholder={`Enter ${field.label}`}
+                    value={formInputs[field.label] || ""}
+                    onChange={e => setFormInputs({ ...formInputs, [field.label]: e.target.value })}
+                  />
+                </div>
+              ))}
+
+              {/* Document Upload */}
+              {activeFormFill.requires_document && (
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 800, color: T.textMuted, textTransform: "uppercase", marginBottom: 6 }}>
+                    {activeFormFill.document_label} <span style={{ color: "#ef4444" }}>*</span>
+                  </label>
+                  <div
+                    onClick={() => { const el = document.createElement("input"); el.type = "file"; el.accept = ".pdf,.jpg,.jpeg,.png"; el.onchange = e => setFormDocFile((e.target as HTMLInputElement).files?.[0] || null); el.click(); }}
+                    style={{ background: formDocFile ? T.accentLight : T.inputBg, border: `2px dashed ${formDocFile ? T.accent : T.inputBorder}`, padding: "20px", borderRadius: 12, textAlign: "center", cursor: "pointer", transition: "all 0.2s" }}
+                  >
+                    {formDocFile ? (
+                      <div style={{ color: T.accent, fontWeight: 700 }}>✅ {formDocFile.name} Attached</div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: 24, marginBottom: 8 }}>📎</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary }}>Click to attach document</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Price Note */}
+              {activeFormFill.price > 0 && (
+                <div style={{ marginTop: 10, textAlign: "center", fontSize: 12, color: T.textSecondary, fontWeight: 600 }}>
+                  Note: A service fee of <span style={{ color: T.accent, fontWeight: 800 }}>₹{activeFormFill.price}</span> will be requested by the admin after review.
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: "16px 24px", borderTop: `1px solid ${T.divider}`, background: T.sidebarHeaderBg, display: "flex", justifyContent: "flex-end", gap: 12, borderRadius: "0 0 14px 14px" }}>
+              <button onClick={() => setActiveFormFill(null)} className="btn btn-g">Cancel</button>
+              <button onClick={handleSendForm} disabled={isSending} className="btn btn-p" style={{ padding: "10px 24px" }}>
+                {isSending ? "Sending..." : "Secure Submit"}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -2732,6 +1754,7 @@ export default function CSCUserDashboard() {
             <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
               {[
                 { icon: "📋", label: t.myRequests, action: () => { window.location.href = "/dashboard"; setSidebarOpen(false); } },
+                { icon: "🎓", label: "My Certificates", action: () => { setShowCertsModal(true); setSidebarOpen(false); } },
                 { icon: "📝", label: "Posts", action: () => { window.location.href = "/admin/posts"; } },
                 { icon: "🖼️", label: "Gallery", action: () => { window.location.href = "/gallery"; } },
                 { icon: "🔔", label: t.notifications, action: () => { window.location.href = "/notifications"; } },
@@ -2793,6 +1816,56 @@ export default function CSCUserDashboard() {
                   {!n.is_read && <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.accent, alignSelf: "center", flexShrink: 0 }} />}
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════
+          MY CERTIFICATES MODAL
+      ════════════════════════════════════════════════════════ */}
+      {showCertsModal && (
+        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowCertsModal(false); }}>
+          <div className="modal-bx" style={{ maxWidth: 550, padding: 0, overflow: "hidden", background: T.modalBg }}>
+
+            <div style={{ background: T.sectionGrad, padding: "20px 24px", color: T.sectionGradText, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 className="serif" style={{ margin: 0, fontSize: 24 }}>🎓 My Certificates</h2>
+                <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>Verified Course Completions</div>
+              </div>
+              <button onClick={() => setShowCertsModal(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", cursor: "pointer", padding: 8, borderRadius: "50%", display: "flex" }}><Ico.X /></button>
+            </div>
+
+            <div style={{ padding: "24px", maxHeight: "60vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+              {myCerts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 40, color: T.textMuted }}>
+                  <div style={{ fontSize: 40, marginBottom: 10 }}>📜</div>
+                  <div style={{ fontSize: 16, fontWeight: 700 }}>No Certificates Yet</div>
+                  <div style={{ fontSize: 13 }}>Complete a course at the CSC to earn your verified certificate.</div>
+                </div>
+              ) : (
+                myCerts.map((cert) => (
+                  <div key={cert.id} style={{ background: T.inputBg, border: `1px solid ${T.inputBorder}`, padding: 16, borderRadius: 12, display: "flex", gap: 16, alignItems: "center", transition: "all 0.2s" }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 10, background: T.accentLight, color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+                      🎖️
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: T.textPrimary, marginBottom: 4 }}>{cert.course_name}</div>
+                      <div className="mono" style={{ fontSize: 11, color: T.textMuted, letterSpacing: "0.05em" }}>
+                        ID: {cert.certificate_number} • ISSUED: {new Date(cert.issue_date).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <a
+                      href={cert.file_url}
+                      target="_blank"
+                      download={`${cert.course_name}_Certificate.pdf`}
+                      style={{ textDecoration: "none", background: T.btnPrimary, color: "#fff", padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 700, flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                    >
+                      ⬇ PDF
+                    </a>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

@@ -28,7 +28,7 @@ export async function fetchMyRequestsAction() {
 		.from("requests")
 		.select(`
             *,
-            request_messages(*, users!request_messages_sender_id_fkey(name, role))
+            request_messages(*, users!request_messages_sender_id_fkey(name, role), forms(title))
         `)
 		.eq("user_id", userId)
 		.order("updated_at", { ascending: false });
@@ -69,6 +69,10 @@ export async function fetchMyRequestsAction() {
 				time: new Date(m.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
 				date: "today",
 				type: m.message_type || "text",
+				// ✨ ADD THESE TWO LINES FOR FORMS ✨
+                formData: m.form_data,
+                formId: m.form_id,
+				formTitle: m.forms?.title || m.form_title, // ✨ ADD THIS EXACT LINE
 				// Dynamically support both doc_url and file_url depending on DB insertions
 				doc: (m.doc_url || m.file_url) ? {
 					name: m.doc_name || m.file_name,
@@ -158,4 +162,76 @@ export async function sendChatMessageAction(requestId: string, content: string, 
 	// Bump the request to the top of the queue
 	await supabaseAdmin.from("requests").update({ updated_at: new Date().toISOString() }).eq("id", requestId);
 	return { success: true };
+}
+
+
+
+
+
+// Add this at the bottom of src/app/actions/requests.ts
+export async function sendFormMessageAction(
+  requestId: string,
+  formId: string,
+  formData: any,
+  docUrl?: string,
+  docName?: string,
+  docSize?: string
+) {
+  
+	const user = await getAuthUser();
+	if (!user) throw new Error("Unauthorized");
+
+	// ✨ FIXED: Safely extract the exact UUID string from the token directly
+    const userId = (user as any).sub || (user as any).id;
+
+  const payload = {
+    request_id: requestId,
+    sender_id: userId,
+    sender_role: "user",
+    message_type: "form",
+    form_id: formId,
+    form_data: formData,
+    doc_url: docUrl || null,
+    doc_name: docName || null,
+    doc_size: docSize || null,
+    is_result_doc: false
+  };
+
+  const { data, error } = await supabaseAdmin.from("request_messages").insert([payload]).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+
+
+
+
+
+// Add to src/app/actions/requests.ts
+export async function getMyDeliveryQueueAction() {
+    const user = await getAuthUser();
+    if (!user) throw new Error("Unauthorized");
+    const userId = (user as any).sub || (user as any).id;
+    const { data, error } = await supabaseAdmin.from("requests")
+        .select("*, address:addresses(*), users:user_id(name, mobile)")
+        .eq("delivery_boy_id", userId)
+        .in("delivery_status", ["pending", "out_for_delivery"])
+        .order("updated_at", { ascending: false });
+        
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export async function updateMyDeliveryStatusAction(requestId: string, status: string) {
+    const user = await getAuthUser();
+    if (!user) throw new Error("Unauthorized");
+    
+	const userId = (user as any).sub || (user as any).id;
+    // Security check: ensure they are the assigned agent
+    const { data } = await supabaseAdmin.from("requests").select("delivery_boy_id").eq("id", requestId).single();
+    if (data?.delivery_boy_id !== userId) throw new Error("Not assigned to this delivery");
+
+    const { error } = await supabaseAdmin.from("requests").update({ delivery_status: status }).eq("id", requestId);
+    if (error) throw new Error(error.message);
+    return true;
 }

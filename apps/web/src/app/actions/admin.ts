@@ -1,208 +1,18 @@
-// "use server";
-
-// import { supabaseAdmin } from "@/lib/supabase";
-// import { getUserFromToken } from "@/lib/auth";
-// import { cookies } from "next/headers";
-
-// // ─── AUTH VERIFICATION ────────────────────────────────────────────────────────
-// async function requireAdmin() {
-//   const cookie = await cookies();
-//   const token = cookie.get("csc_token")?.value;
-//   if (!token) throw new Error("Unauthorized - No token");
-  
-//   const user = await getUserFromToken(token);
-//   if (!user || (user.role !== "main_admin" && user.role !== "co_admin")) {
-//     throw new Error("Forbidden - Admin access required");
-//   }
-//   return user;
-// }
-
-// // ─── QUEUE & CHAT ACTIONS ─────────────────────────────────────────────────────
-// export async function adminGetRequestsAction(statusFilter: string, search: string) {
-//   await requireAdmin();
-//   let query = supabaseAdmin
-//     .from("requests")
-//     .select(`*, users!requests_user_id_fkey(name, mobile), assignee:users!requests_assigned_to_fkey(name)`)
-//     .order("updated_at", { ascending: false })
-//     .limit(100);
-
-//   if (statusFilter !== "all") query = query.eq("status", statusFilter);
-//   if (search) query = query.or(`title.ilike.%${search}%,service.ilike.%${search}%`);
-
-//   const { data, error } = await query;
-//   if (error) throw new Error(error.message);
-//   return data;
-// }
-
-// export async function adminGetChatAction(reqId: string) {
-//   await requireAdmin();
-//   const [msgRes, docRes] = await Promise.all([
-//     supabaseAdmin.from("request_messages").select(`*, users!request_messages_sender_id_fkey(name, role)`).eq("request_id", reqId).order("created_at", { ascending: true }),
-//     supabaseAdmin.from("documents").select(`*`).eq("request_id", reqId).order("created_at", { ascending: false })
-//   ]);
-//   return { messages: msgRes.data || [], documents: docRes.data || [] };
-// }
-
-// export async function adminSendMessageAction(payload: any) {
-//   const admin = await requireAdmin();
-//   const { error } = await supabaseAdmin.from("request_messages").insert([{
-//     ...payload,
-//     sender_id: admin.sub,
-//     sender_role: admin.role,
-//   }]);
-//   if (error) throw new Error(error.message);
-//   await supabaseAdmin.from("requests").update({ updated_at: new Date().toISOString() }).eq("id", payload.request_id);
-//   return { success: true };
-// }
-
-// export async function adminUpdateReqStatusAction(reqId: string, status: string) {
-//   const admin = await requireAdmin();
-//   const { error } = await supabaseAdmin.from("requests").update({ status }).eq("id", reqId);
-//   if (error) throw new Error(error.message);
-//   await supabaseAdmin.from("audit_logs").insert([{ actor_id: admin.sub, actor_name: admin.name, action: `Status changed to ${status}`, record_id: reqId }]);
-//   return { success: true };
-// }
-
-// export async function adminAssignReqAction(reqId: string, assigneeId: string) {
-//   await requireAdmin();
-//   const { error } = await supabaseAdmin.from("requests").update({ assigned_to: assigneeId }).eq("id", reqId);
-//   if (error) throw new Error(error.message);
-//   return { success: true };
-// }
-
-// export async function adminCreateNewChatAction(userId: string) {
-//   const admin = await requireAdmin();
-//   const { data, error } = await supabaseAdmin.from("requests").insert([{
-//     user_id: userId, service: "Admin Support Chat", title: "Direct Interaction", status: "processing", priority: "regular", assigned_to: admin.sub, payment_status: "na", payment_amount: 0
-//   }]).select("*, users!requests_user_id_fkey(name, mobile)").single();
-//   if (error) throw new Error(error.message);
-//   return data;
-// }
-
-// export async function adminSearchUsersAction(query: string) {
-//   await requireAdmin();
-//   const { data, error } = await supabaseAdmin.from("users").select("*").eq("role", "user").or(`name.ilike.%${query}%,mobile.ilike.%${query}%`).limit(10);
-//   if (error) throw new Error(error.message);
-//   return data;
-// }
-
-// // ─── TEAM ACTIONS ─────────────────────────────────────────────────────────────
-// export async function adminGetTeamAction() {
-//   await requireAdmin();
-//   // ✨ FIX: Removed the role filter so it fetches ALL users. 
-//   // Ordered by created_at so newest users appear, with a limit to prevent crashing on huge databases.
-//   const { data, error } = await supabaseAdmin
-//     .from("users")
-//     .select("*")
-//     .order("created_at", { ascending: false })
-//     .limit(500); 
-    
-//   if (error) throw new Error(error.message);
-//   return data;
-// }
-
-// export async function adminUpdateUserRoleAction(userId: string, role: string) {
-//   const admin = await requireAdmin();
-//   if (admin.role !== "main_admin") throw new Error("Only Main Admin can alter roles");
-  
-//   // 1. Update their role in the public users table
-//   const { error } = await supabaseAdmin.from("users").update({ role }).eq("id", userId);
-//   if (error) throw new Error(error.message);
-
-//   // 2. ✨ THE BACKEND KILL-SWITCH: Revoke their Supabase Auth session globally
-//   const { error: authError } = await supabaseAdmin.auth.admin.signOut(userId, 'global');
-//   if (authError) console.error("Failed to revoke session globally:", authError);
-
-//   return { success: true };
-// }
-
-// // ─── POST ACTIONS ─────────────────────────────────────────────────────────────
-// export async function adminGetPostsAction() {
-//   await requireAdmin();
-//   const { data, error } = await supabaseAdmin.from("posts").select("*, users(name)").order("created_at", { ascending: false });
-//   if (error) throw new Error(error.message);
-//   return data;
-// }
-
-// export async function adminCreatePostAction(postData: any) {
-//   const admin = await requireAdmin();
-//   const { data, error } = await supabaseAdmin.from("posts").insert([{ 
-//     title: postData.title, title_hi: postData.title, short_desc: postData.shortDesc, theme: postData.theme, service_cost: Number(postData.cost) || 0, created_by: admin.sub, is_published: true 
-//   }]).select("*, users(name)").single();
-//   if (error) throw new Error(error.message);
-//   return data;
-// }
-
-// export async function adminDeletePostAction(postId: string) {
-//   const admin = await requireAdmin();
-//   if (admin.role !== "main_admin") throw new Error("Only Main Admin can delete posts");
-//   const { error } = await supabaseAdmin.from("posts").delete().eq("id", postId);
-//   if (error) throw new Error(error.message);
-//   return { success: true };
-// }
-
-
-
-// export async function adminDeleteRequestsAction(requestIds: string[]) {
-//   await requireAdmin();
-//   const { error } = await supabaseAdmin
-//     .from("requests")
-//     .delete()
-//     .in("id", requestIds);
-
-//   if (error) throw new Error(error.message);
-//   return { success: true };
-// }
-
-
-// // ─── FETCH CURRENT ADMIN PROFILE ───
-// export async function getAdminProfileAction() {
-//   try {
-//     const liveUser = await requireAdmin();
-//     return liveUser;
-//   } catch (error) {
-//     return null;
-//   }
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 "use server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getUserFromToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+
+
+// Helper to get the logged-in user securely on the server
+async function getAuthUser() {
+	const cookie = await cookies();
+	const token = cookie.get("csc_token")?.value;
+	if (!token) return null;
+	return await getUserFromToken(token);
+}
 
 // ─── AUTH VERIFICATION ────────────────────────────────────────────────────────
 async function requireAdmin() {
@@ -222,7 +32,7 @@ export async function adminGetRequestsAction(statusFilter: string, search: strin
   await requireAdmin();
   let query = supabaseAdmin
     .from("requests")
-    .select(`*, users!requests_user_id_fkey(name, mobile), assignee:users!requests_assigned_to_fkey(name), address:addresses(*)`)
+    .select(`*, users!requests_user_id_fkey(name, mobile), assignee:users!requests_assigned_to_fkey(name), address:addresses(*), request_messages(*)`)
     .order("updated_at", { ascending: false })
     .limit(100);
 
@@ -237,7 +47,7 @@ export async function adminGetRequestsAction(statusFilter: string, search: strin
 export async function adminGetChatAction(reqId: string) {
   await requireAdmin();
   const [msgRes, docRes] = await Promise.all([
-    supabaseAdmin.from("request_messages").select(`*, users!request_messages_sender_id_fkey(name, role)`).eq("request_id", reqId).order("created_at", { ascending: true }),
+    supabaseAdmin.from("request_messages").select(`*, users!request_messages_sender_id_fkey(name, role), forms(title)`).eq("request_id", reqId).order("created_at", { ascending: true }),
     supabaseAdmin.from("documents").select(`*`).eq("request_id", reqId).order("created_at", { ascending: false })
   ]);
   return { messages: msgRes.data || [], documents: docRes.data || [] };
@@ -703,3 +513,18 @@ export async function getGalleryImagesAction() {
   if (error) throw new Error(error.message);
   return data || [];
 }
+
+
+// Add to src/app/actions/admin.ts
+export async function adminAssignDeliveryBoyAction(requestId: string, deliveryBoyId: string) {
+    const user = await getAuthUser();
+    if (!user || user.role === "user") throw new Error("Unauthorized");
+    
+    const { error } = await supabaseAdmin.from("requests")
+        .update({ delivery_boy_id: deliveryBoyId, delivery_status: 'pending' })
+        .eq("id", requestId);
+        
+    if (error) throw new Error(error.message);
+    return true;
+}
+

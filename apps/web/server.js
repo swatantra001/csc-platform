@@ -34,6 +34,8 @@ app.prepare().then(() => {
 		// 2. Broadcast new messages to everyone in that specific chat
 		socket.on("send_message", (messagePayload) => {
 			io.to(messagePayload.request_id).emit("new_message", messagePayload);
+			// ✨ ADD THIS: Global alert so admins get the desktop notification/sound
+            io.emit("global_message_alert", messagePayload);
 		});
 
 		// 3. Broadcast to all admins that the queue needs refreshing
@@ -65,6 +67,7 @@ app.prepare().then(() => {
 		});
 
 		// Add this right below your trigger_queue_refresh socket event
+
 
 
 

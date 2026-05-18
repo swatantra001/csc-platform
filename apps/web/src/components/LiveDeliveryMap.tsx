@@ -1,95 +1,141 @@
-"use client";
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { socket } from "@/lib/socket";
 
-// Fix Leaflet's default icon missing issues in Next.js
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+"use client";
+
+import { useEffect, useState } from "react";
+import { socket } from "@/lib/socket";
+import { supabase } from "@/lib/supabase";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// 1. Custom Bike Icon (Matches your dark theme)
+const bikeIcon = new L.DivIcon({
+  html: `<div style="background:#10b981; border:3px solid #fff; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3); font-size:18px;">🛵</div>`,
+  className: "bike-marker",
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
 });
 
-// A mini-component to smoothly pan the map when the bike moves
-function DynamicMapCenter({ center }: { center: [number, number] }) {
+// 2. Custom Destination Icon
+const destIcon = new L.DivIcon({
+  html: `<div style="background:#ef4444; border:3px solid #fff; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.3); font-size:18px;">📍</div>`,
+  className: "dest-marker",
+  iconSize: [34, 34],
+  iconAnchor: [17, 34],
+});
+
+// 3. Auto-Center Map Logic
+function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, map.getZoom(), { animate: true, duration: 1.5 });
-  }, [center, map]);
+    map.flyTo([lat, lng], 16, { animate: true, duration: 1.5 });
+  }, [lat, lng, map]);
   return null;
 }
 
-export default function LiveDeliveryMap({ requestId }: { requestId: string }) {
-  // Default coordinates (approx center of India, will update instantly on connect)
-  const [location, setLocation] = useState({ lat: 25.7464, lng: 82.6837, heading: 0 }); 
-  const [isActive, setIsActive] = useState(false);
+export default function LiveDeliveryMap({ requestId, destinationLat, destinationLng }: { requestId: string, destinationLat?: number, destinationLng?: number }) {
+  const [currentLoc, setCurrentLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [path, setPath] = useState<[number, number][]>([]);
+  const [areaName, setAreaName] = useState<string>("Locating area...");
+  const [isConnected, setIsConnected] = useState(false);
+
+  // ✨ REVERSE GEOCODING: Convert Lat/Lng to actual Street Name
+  const fetchAreaName = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      const data = await res.json();
+      // Grabs the suburb, neighborhood, or road name
+      const name = data.address?.suburb || data.address?.neighbourhood || data.address?.road || data.address?.city || "Unknown Area";
+      setAreaName(name);
+    } catch (e) {
+      console.error("Geocoding failed", e);
+    }
+  };
 
   useEffect(() => {
-    socket.emit("join_tracking", requestId);
+    if (!requestId) return;
 
-    socket.on("location_updated", (data:any) => {
-      setLocation({ lat: data.lat, lng: data.lng, heading: data.heading });
-      setIsActive(true);
-    });
+    // 1. INSTANT LOAD: Fetch the last known location from the DB so it doesn't get stuck waiting!
+    const fetchInitialLoc = async () => {
+      const { data } = await supabase.from('delivery_tracking').select('*').eq('request_id', requestId).single();
+      if (data) {
+        setCurrentLoc({ lat: data.current_lat, lng: data.current_lng });
+        setPath([[data.current_lat, data.current_lng]]);
+        fetchAreaName(data.current_lat, data.current_lng);
+      }
+    };
+    fetchInitialLoc();
+
+    // 2. SOCKET SETUP: Listen for live movement
+    socket.emit("join_tracking", requestId);
+    
+    const handleLiveUpdate = (payload: any) => {
+      setIsConnected(true);
+      setCurrentLoc({ lat: payload.lat, lng: payload.lng });
+      
+      // Add the new point to our continuous line!
+      setPath(prev => [...prev, [payload.lat, payload.lng]]);
+      
+      // Update area name every time they move significantly
+      fetchAreaName(payload.lat, payload.lng);
+    };
+
+    socket.on("location_updated", handleLiveUpdate);
 
     return () => {
-      socket.off("location_updated");
+      socket.off("location_updated", handleLiveUpdate);
+      socket.emit("leave_tracking", requestId); // Cleanup room
     };
   }, [requestId]);
 
-  // Create a stunning rotating marker for the bike
-  const bikeIcon = L.divIcon({
-    html: `
-      <div style="
-        transform: rotate(${location.heading}deg); 
-        font-size: 32px; 
-        filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4)); 
-        transition: transform 1s ease-out;
-      ">🏍️</div>`,
-    className: "bg-transparent border-none",
-    iconSize: [40, 40],
-    iconAnchor: [20, 20], // Center the icon perfectly
-  });
+  if (!currentLoc) {
+    return (
+      <div style={{ height: 400, borderRadius: 12, background: "#1e293b", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
+        <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#10b981", borderRadius: "50%", animation: "spin 1s linear infinite", marginBottom: 16 }} />
+        <div style={{ fontWeight: 700 }}>Connecting to Agent's GPS...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-2xl overflow-hidden shadow-2xl border border-slate-200 mt-6 relative bg-white">
+    <div style={{ borderRadius: 16, overflow: "hidden", border: "1px solid #334155", position: "relative", height: 450 }}>
       
-      {/* Premium Header */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-5 py-4 flex justify-between items-center z-10 relative">
-        <div className="font-bold flex items-center gap-2">
-          <span className="text-xl">📍</span> Live Delivery Tracking
-        </div>
-        <div className="text-xs font-bold px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span>
-          {isActive ? "Driver Active" : "Waiting for GPS..."}
+      {/* Overlay UI (Zomato Style) */}
+      <div style={{ position: "absolute", top: 16, left: 16, right: 16, zIndex: 1000, display: "flex", gap: 10 }}>
+        <div style={{ background: "rgba(15, 23, 42, 0.85)", backdropFilter: "blur(8px)", padding: "10px 16px", borderRadius: 12, flex: 1, border: "1px solid rgba(255,255,255,0.1)", color: "#fff", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 10px 30px rgba(0,0,0,0.3)" }}>
+          <div style={{ fontSize: 24 }}>{isConnected ? "🟢" : "🟡"}</div>
+          <div>
+            <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Current Location</div>
+            <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{areaName}</div>
+          </div>
         </div>
       </div>
 
-      {/* Map Viewport */}
-      <div className="h-[380px] w-full relative z-0">
-        <MapContainer 
-          center={[location.lat, location.lng]} 
-          zoom={16} 
-          style={{ height: "100%", width: "100%" }}
-          zoomControl={false}
-        >
-          {/* CartoDB Voyager - Super clean, high contrast map tiles */}
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com/">Carto</a>'
-          />
-          <DynamicMapCenter center={[location.lat, location.lng]} />
-          
-          <Marker position={[location.lat, location.lng]} icon={bikeIcon}>
-            <Popup className="font-bold text-slate-800">
-              Your document is on the way! 🚀
-            </Popup>
+      {/* The Map */}
+      <MapContainer center={[currentLoc.lat, currentLoc.lng]} zoom={15} style={{ height: "100%", width: "100%", background: "#0f172a" }} zoomControl={false}>
+        {/* Dark Mode Map Tiles */}
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+        
+        {/* The Continuous Path Line */}
+        <Polyline positions={path} pathOptions={{ color: "#10b981", weight: 5, opacity: 0.8, lineCap: "round", lineJoin: "round", dashArray: "1, 8" }} />
+
+        {/* The Agent's Bike */}
+        <Marker position={[currentLoc.lat, currentLoc.lng]} icon={bikeIcon}>
+          <Popup>Agent is here</Popup>
+        </Marker>
+
+        {/* The Destination (If passed via props) */}
+        {destinationLat && destinationLng && (
+          <Marker position={[destinationLat, destinationLng]} icon={destIcon}>
+            <Popup>Delivery Destination</Popup>
           </Marker>
-        </MapContainer>
-      </div>
+        )}
+
+        {/* Keeps camera locked on bike */}
+        <RecenterMap lat={currentLoc.lat} lng={currentLoc.lng} />
+      </MapContainer>
+      
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
