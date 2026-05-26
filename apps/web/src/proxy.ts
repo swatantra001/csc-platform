@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ─── Route protection rules ─────────────────────────────────────────────────
 // Public routes — no login needed
-const PUBLIC_ROUTES = ["/", "/status", "/verify", "posts", "galary", "/courses"];
+const PUBLIC_ROUTES = ["/", "/status", "/verify", "posts", "galary", "/courses", "sitemap.xml"];
 
 // User routes — any logged-in user
 const USER_ROUTES = ["/dashboard"];
@@ -12,6 +12,11 @@ const ADMIN_ROUTES = ["/admin"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // 1. Allow public SEO and static files to pass through immediately
+  if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/manifest.json') {
+    return NextResponse.next();
+  }
 
   // Read JWT token from cookie (set after login)
   const token = request.cookies.get("csc_token")?.value;
@@ -54,6 +59,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Run middleware on these paths (exclude static files, api routes, _next)
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/).*)",
+    // Ignore next internals, static files, images, sitemaps, and robots
+    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json).*)',
   ],
 };

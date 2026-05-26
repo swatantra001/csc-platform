@@ -17,6 +17,7 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
+          set -e  # <--- ADD THIS LINE! It forces the pipeline to crash and show RED if any step fails.
           # 1. Navigate to the monorepo root
           cd /home/ubuntu/csc-platform
           
