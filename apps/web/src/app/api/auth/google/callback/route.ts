@@ -13,7 +13,24 @@ export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
 	const code = searchParams.get("code");
 	const state = searchParams.get("state") || "/dashboard";
+	// With backward-compatible state parsing:
+	const stateRaw = searchParams.get("state") || "/dashboard";
+	let stateData: { from: string; mobile?: boolean } = { from: "/dashboard" };
 	const error = searchParams.get("error");
+
+	try {
+		const parsed = JSON.parse(stateRaw);
+		if (typeof parsed === "object" && parsed !== null) {
+			stateData = { from: parsed.from || "/dashboard", mobile: parsed.mobile };
+		} else {
+			stateData = { from: String(stateRaw) };
+		}
+	} catch {
+		stateData = { from: stateRaw.startsWith("/") ? stateRaw : "/dashboard" };
+	}
+
+	const isMobile = stateData.mobile === true;
+	const redirectTo = stateData.from.startsWith("/") ? stateData.from : "/dashboard";
 
 	// User denied permission
 	if (error || !code) {
@@ -108,6 +125,13 @@ export async function GET(req: NextRequest) {
 			name: existingUser.name,
 			preferred_lang: existingUser.preferred_lang,
 		});
+
+		if (isMobile) {
+			// Redirect back to React Native app with token in URL
+			return NextResponse.redirect(
+				`csc://auth/callback?token=${encodeURIComponent(token)}&role=${encodeURIComponent(existingUser.role)}&lang=${encodeURIComponent(existingUser.preferred_lang || "hi")}`
+			);
+		}
 
 		// 5. Set cookies and redirect
 		const redirectTo = state.startsWith("/") ? state : "/dashboard";

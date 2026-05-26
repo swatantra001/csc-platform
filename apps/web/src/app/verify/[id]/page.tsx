@@ -807,18 +807,6 @@ export default function VerifyCertificatePage() {
                       </div>
                     ))}
                   </div>
-
-                  {/* View PDF Button */}
-                  <a
-                    href={cert.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none", display: "inline-block" }}
-                  >
-                    <button className="btn btn-p" style={{ padding: "12px 28px", fontSize: 14 }}>
-                      <Ico.Download /> View Original PDF
-                    </button>
-                  </a>
                 </>
               )}
 

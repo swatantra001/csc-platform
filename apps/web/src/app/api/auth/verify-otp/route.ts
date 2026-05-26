@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: result.message,
       user: result.user,
+      token: result.token,
     });
  
     // Set secure httpOnly cookies

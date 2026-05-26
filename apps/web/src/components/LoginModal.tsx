@@ -1,10 +1,12 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "./AuthProvider";
 import { auth } from "@/lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
+import { QRCodeSVG } from "qrcode.react";
+
 
 // ── Window extensions for Firebase ──────────────────────────────────────────
 declare global {
@@ -14,14 +16,14 @@ declare global {
   }
 }
 
-type Lang      = "hi" | "en";
+type Lang = "hi" | "en";
 type LoginStep = "number" | "otp" | "password" | "set-password";
 type LoginMode = "otp" | "password";
 
 interface LoginModalProps {
-  lang:      Lang;
-  dark:      boolean;
-  onClose:   () => void;
+  lang: Lang;
+  dark: boolean;
+  onClose: () => void;
   onSuccess: () => Promise<void>;
 }
 
@@ -95,71 +97,71 @@ const THEMES: Record<"light" | "dark", ThemeTokens> = {
 
 const T = {
   hi: {
-    welcome:     "स्वागत है 🙏",
-    subtitle:    "अपने खाते में लॉगिन करें",
-    identifier:  "मोबाइल नंबर या ईमेल",
-    identPh:     "10 अंकों का नंबर या ईमेल",
-    sendOtp:     "OTP भेजें",
-    withPass:    "पासवर्ड से",
-    withOtp:     "OTP से लॉगिन",
-    orGoogle:    "— या —",
-    google:      "Google से लॉगिन करें",
-    enterOtp:    "OTP दर्ज करें",
-    sentTo:      (m: string) => `${m} पर OTP भेजा गया`,
-    change:      "बदलें",
-    verify:      "सत्यापित करें",
-    resend:      "OTP दोबारा भेजें",
-    resendIn:    (s: number) => `दोबारा भेजें (${s}s)`,
-    enterPass:   "पासवर्ड दर्ज करें",
-    passLabel:   "पासवर्ड",
-    passPh:      "अपना पासवर्ड दर्ज करें",
-    forgotPass:  "पासवर्ड भूल गए?",
-    login:       "लॉगिन करें",
-    setPassTitle:"नया पासवर्ड सेट करें",
+    welcome: "स्वागत है 🙏",
+    subtitle: "अपने खाते में लॉगिन करें",
+    identifier: "मोबाइल नंबर या ईमेल",
+    identPh: "10 अंकों का नंबर या ईमेल",
+    sendOtp: "OTP भेजें",
+    withPass: "पासवर्ड से",
+    withOtp: "OTP से लॉगिन",
+    orGoogle: "— या —",
+    google: "Google से लॉगिन करें",
+    enterOtp: "OTP दर्ज करें",
+    sentTo: (m: string) => `${m} पर OTP भेजा गया`,
+    change: "बदलें",
+    verify: "सत्यापित करें",
+    resend: "OTP दोबारा भेजें",
+    resendIn: (s: number) => `दोबारा भेजें (${s}s)`,
+    enterPass: "पासवर्ड दर्ज करें",
+    passLabel: "पासवर्ड",
+    passPh: "अपना पासवर्ड दर्ज करें",
+    forgotPass: "पासवर्ड भूल गए?",
+    login: "लॉगिन करें",
+    setPassTitle: "नया पासवर्ड सेट करें",
     setPassNote: "भविष्य में आसान लॉगिन के लिए एक सुरक्षित पासवर्ड सेट करें।",
-    newPass:     "नया पासवर्ड",
-    newPassPh:   "न्यूनतम 6 अक्षर",
-    setPass:     "पासवर्ड सहेजें",
-    skip:        "अभी नहीं",
-    newUser:     "नए उपयोगकर्ता? OTP द्वारा पंजीकरण स्वचालित है।",
-    sending:     "भेज रहे हैं...",
-    verifying:   "सत्यापित हो रहा है...",
-    loggingIn:   "लॉगिन हो रहा है...",
-    error:       "कुछ गलत हुआ। दोबारा प्रयास करें।",
+    newPass: "नया पासवर्ड",
+    newPassPh: "न्यूनतम 6 अक्षर",
+    setPass: "पासवर्ड सहेजें",
+    skip: "अभी नहीं",
+    newUser: "नए उपयोगकर्ता? OTP द्वारा पंजीकरण स्वचालित है।",
+    sending: "भेज रहे हैं...",
+    verifying: "सत्यापित हो रहा है...",
+    loggingIn: "लॉगिन हो रहा है...",
+    error: "कुछ गलत हुआ। दोबारा प्रयास करें।",
     mobileOtpSoon: "📱 मोबाइल OTP जल्द ही आ रहा है! कृपया ईमेल से लॉगिन करें।",
   },
   en: {
-    welcome:     "Welcome 🙏",
-    subtitle:    "Login to access your account",
-    identifier:  "Mobile or Email",
-    identPh:     "10-digit mobile or email address",
-    sendOtp:     "Send OTP",
-    withPass:    "With Password",
-    withOtp:     "Login with OTP",
-    orGoogle:    "— or —",
-    google:      "Continue with Google",
-    enterOtp:    "Enter OTP",
-    sentTo:      (m: string) => `OTP sent to ${m}`,
-    change:      "Change",
-    verify:      "Verify OTP",
-    resend:      "Resend OTP",
-    resendIn:    (s: number) => `Resend in ${s}s`,
-    enterPass:   "Enter your password",
-    passLabel:   "Password",
-    passPh:      "Enter your password",
-    forgotPass:  "Forgot password?",
-    login:       "Login",
-    setPassTitle:"Set a New Password",
+    welcome: "Welcome 🙏",
+    subtitle: "Login to access your account",
+    identifier: "Mobile or Email",
+    identPh: "10-digit mobile or email address",
+    sendOtp: "Send OTP",
+    withPass: "With Password",
+    withOtp: "Login with OTP",
+    orGoogle: "— or —",
+    google: "Continue with Google",
+    enterOtp: "Enter OTP",
+    sentTo: (m: string) => `OTP sent to ${m}`,
+    change: "Change",
+    verify: "Verify OTP",
+    resend: "Resend OTP",
+    resendIn: (s: number) => `Resend in ${s}s`,
+    enterPass: "Enter your password",
+    passLabel: "Password",
+    passPh: "Enter your password",
+    forgotPass: "Forgot password?",
+    login: "Login",
+    setPassTitle: "Set a New Password",
     setPassNote: "Set a secure password for easier future logins.",
-    newPass:     "New password",
-    newPassPh:   "Minimum 6 characters",
-    setPass:     "Save Password",
-    skip:        "Skip for now",
-    newUser:     "New user? Registration is automatic.",
-    sending:     "Sending...",
-    verifying:   "Verifying...",
-    loggingIn:   "Logging in...",
-    error:       "Something went wrong. Please try again.",
+    newPass: "New password",
+    newPassPh: "Minimum 6 characters",
+    setPass: "Save Password",
+    skip: "Skip for now",
+    newUser: "New user? Registration is automatic.",
+    sending: "Sending...",
+    verifying: "Verifying...",
+    loggingIn: "Logging in...",
+    error: "Something went wrong. Please try again.",
     mobileOtpSoon: "📱 Mobile OTP coming soon! Please use email login.",
   },
 } as const;
@@ -167,15 +169,15 @@ const T = {
 // ── Eye Icon SVGs ──────────────────────────────────────────
 const EyeOpen = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-    <circle cx="12" cy="12" r="3"/>
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 
 const EyeClosed = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-    <line x1="1" y1="1" x2="23" y2="23"/>
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+    <line x1="1" y1="1" x2="23" y2="23" />
   </svg>
 );
 
@@ -183,16 +185,16 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
   const t = T[lang];
   const theme = dark ? THEMES.dark : THEMES.light;
 
-  const [step, setStep]         = useState<LoginStep>("number");
-  const [mode, setMode]         = useState<LoginMode>("otp"); 
+  const [step, setStep] = useState<LoginStep>("number");
+  const [mode, setMode] = useState<LoginMode>("password");
   const [identifier, setIdentifier] = useState("");
-  const [otp, setOtp]           = useState(["", "", "", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [newPass, setNewPass]   = useState("");
-  const [timer, setTimer]       = useState(0);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [timer, setTimer] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const [isResettingPass, setIsResettingPass] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -205,11 +207,22 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
   const isValidInput = isEmail ? isValidEmail : isValidMobile;
 
+  const [view, setView] = useState<"form" | "qr">("form");
+  const [qrSid, setQrSid] = useState("");
+  const [qrStatus, setQrStatus] = useState<"loading" | "active" | "expired">("loading");
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     return () => {
       if (window.recaptchaVerifier) {
-        try { window.recaptchaVerifier.clear(); window.recaptchaVerifier = null; } catch (e) {}
+        try { window.recaptchaVerifier.clear(); window.recaptchaVerifier = null; } catch (e) { }
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
 
@@ -226,14 +239,49 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible', callback: () => {}
+        size: 'invisible', callback: () => { }
       });
+    }
+  };
+
+  const initQr = async () => {
+    setQrStatus("loading");
+    setError("");
+    try {
+      const res = await fetch("/api/auth/qr-create", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setQrSid(data.session_id);
+        setQrStatus("active");
+
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = setInterval(async () => {
+          const check = await fetch(`/api/auth/qr-check?sid=${data.session_id}`);
+          const c = await check.json();
+          if (c.success && c.token) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            await fetch("/api/auth/set-session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: c.token }),
+            });
+            await onSuccess();
+            onClose();
+          } else if (c.expired) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setQrStatus("expired");
+          }
+        }, 2000);
+      }
+    } catch {
+      setError("Failed to generate QR code");
+      setQrStatus("expired");
     }
   };
 
   const handleOtpChange = (i: number, val: string) => {
     const digit = val.replace(/\D/, "").slice(-1);
-    const next  = [...otp];
+    const next = [...otp];
     next[i] = digit;
     setOtp(next);
     if (digit && i < 5) (document.getElementById(`otp-inp-${i + 1}`) as HTMLInputElement)?.focus();
@@ -247,13 +295,13 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
   // ── SMART OTP SENDING ──
   const handleSendOtp = async () => {
     if (!isValidInput) { setError("Invalid mobile or email"); return; }
-    
+
     // ── MOBILE OTP COMING SOON CHECK ──
     if (!isEmail) {
       setError(t.mobileOtpSoon);
       return;
     }
-    
+
     setLoading(true); setError("");
 
     try {
@@ -271,8 +319,8 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
         const data = await res.json();
         if (!data.success) throw new Error(data.message);
       }
-      
-      setStep("otp"); setTimer(30); setOtp(["","","","","",""]);
+
+      setStep("otp"); setTimer(30); setOtp(["", "", "", "", "", ""]);
       setTimeout(() => (document.getElementById("otp-inp-0") as HTMLInputElement)?.focus(), 80);
     } catch (err: any) {
       setError(err.message || t.error);
@@ -305,7 +353,7 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
           body: JSON.stringify({ email: identifier.toLowerCase(), otp: otpStr }),
         });
       }
-      
+
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
 
@@ -325,9 +373,9 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
     if (!password) { setError("Enter your password"); return; }
     setLoading(true); setError("");
     try {
-      const res  = await fetch("/api/auth/login-password", {
+      const res = await fetch("/api/auth/login-password", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: identifier.toLowerCase(), password }), 
+        body: JSON.stringify({ identifier: identifier.toLowerCase(), password }),
         credentials: "include",
       });
       const data = await res.json();
@@ -529,154 +577,416 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
         </div>
 
         {/* Body */}
+        {/* Body */}
         <div style={{ padding: 28, background: theme.modalBg }}>
-          
-          {/* ── STEP: MOBILE NUMBER ── */}
-          {step === "number" && (
-            <>
-              {/* Mode Toggle */}
-              <div
-                style={{
-                  display: "flex",
-                  background: theme.inputBg,
-                  borderRadius: 12,
-                  padding: 4,
-                  marginBottom: 20,
-                  border: `1px solid ${theme.inputBorder}`,
-                }}
-              >
-                <button
-                  onClick={() => setMode("password")}
-                  style={{
-                    flex: 1,
-                    padding: 10,
-                    borderRadius: 8,
-                    fontSize: "0.85rem",
-                    fontWeight: 700,
-                    textAlign: "center",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    border: "none",
-                    fontFamily: "inherit",
-                    background: mode === "password" ? theme.cardBg : "transparent",
-                    color: mode === "password" ? theme.accent : theme.textMuted,
-                    boxShadow: mode === "password" ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
-                  }}
-                >
-                  🔒 {t.withPass}
-                </button>
-                <button
-                  onClick={() => setMode("otp")}
-                  style={{
-                    flex: 1,
-                    padding: 10,
-                    borderRadius: 8,
-                    fontSize: "0.85rem",
-                    fontWeight: 700,
-                    textAlign: "center",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    border: "none",
-                    fontFamily: "inherit",
-                    background: mode === "otp" ? theme.cardBg : "transparent",
-                    color: mode === "otp" ? theme.accent : theme.textMuted,
-                    boxShadow: mode === "otp" ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
-                  }}
-                >
-                  📱 {t.withOtp}
-                </button>
-              </div>
 
-              {/* Identifier Input */}
-              <div style={{ position: "relative", marginBottom: 16 }}>
-                {!isEmail && identifier.length > 0 && (
-                  <span
+          {/* ── VIEW TOGGLE: Form | QR ── */}
+          <div
+            style={{
+              display: "flex",
+              background: theme.inputBg,
+              borderRadius: 12,
+              padding: 4,
+              marginBottom: 20,
+              border: `1px solid ${theme.inputBorder}`,
+            }}
+          >
+            <button
+              onClick={() => {
+                setView("form");
+                if (pollRef.current) clearInterval(pollRef.current);
+              }}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 8,
+                fontSize: "0.85rem",
+                fontWeight: 700,
+                textAlign: "center",
+                cursor: "pointer",
+                border: "none",
+                fontFamily: "inherit",
+                background: view === "form" ? theme.cardBg : "transparent",
+                color: view === "form" ? theme.accent : theme.textMuted,
+                boxShadow: view === "form" ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+              }}
+            >
+              ✉️ Form
+            </button>
+            <button
+              onClick={() => {
+                setView("qr");
+                if (!qrSid) initQr();
+              }}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 8,
+                fontSize: "0.85rem",
+                fontWeight: 700,
+                textAlign: "center",
+                cursor: "pointer",
+                border: "none",
+                fontFamily: "inherit",
+                background: view === "qr" ? theme.cardBg : "transparent",
+                color: view === "qr" ? theme.accent : theme.textMuted,
+                boxShadow: view === "qr" ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+              }}
+            >
+              📷 QR Code
+            </button>
+          </div>
+
+          {view === "qr" ? (
+            <div style={{ textAlign: "center", padding: "24px 0" }}>
+              {qrStatus === "loading" && (
+                <p style={{ color: theme.textMuted, fontWeight: 500 }}>Generating QR…</p>
+              )}
+
+              {qrStatus === "active" && (
+                <>
+                  <div
                     style={{
-                      position: "absolute",
-                      left: 16,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: theme.textMuted,
-                      fontWeight: 600,
-                      fontSize: "0.95rem",
-                      userSelect: "none",
+                      background: "#fff",
+                      padding: 12,
+                      borderRadius: 16,
+                      display: "inline-block",
+                      border: `1px solid ${theme.cardBorder}`,
                     }}
                   >
-                    🇮🇳 +91
-                  </span>
-                )}
-                <input
-                  type={isEmail ? "email" : "text"}
-                  value={identifier}
-                  onChange={(e) => { 
-                    const val = e.target.value;
-                    if (/^\d+$/.test(val) && val.length > 10) return;
-                    setIdentifier(val.trim()); setError(""); 
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && (mode === "password" ? handlePasswordLogin() : handleSendOtp())}
-                  placeholder={t.identPh}
-                  autoFocus
-                  style={{
-                    ...inputBaseStyle,
-                    paddingLeft: (!isEmail && identifier.length > 0) ? "76px" : "16px",
-                  }}
-                  onFocus={inputFocusStyle}
-                  onBlur={inputBlurStyle}
-                />
-              </div>
+                    <QRCodeSVG value={qrSid} size={200} level="M" includeMargin />
+                  </div>
+                  <p
+                    style={{
+                      marginTop: 16,
+                      color: theme.textSecondary,
+                      fontSize: "0.9rem",
+                      fontWeight: 500,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Open <strong>Srilal CSC</strong> app → tap scanner → scan to login instantly
+                  </p>
+                </>
+              )}
 
-              {/* Password Input with Show/Hide */}
-              {mode === "password" && (
+              {qrStatus === "expired" && (
                 <>
-                  <div style={{ position: "relative", marginBottom: 12 }}>
+                  <p style={{ color: theme.btnDangerText, marginBottom: 16, fontWeight: 600 }}>
+                    QR expired. Please refresh.
+                  </p>
+                  <button
+                    onClick={initQr}
+                    style={{
+                      ...btnPrimaryStyle,
+                      width: "auto",
+                      padding: "12px 24px",
+                    }}
+                  >
+                    Refresh QR
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+
+
+              {/* ── STEP: MOBILE NUMBER ── */}
+              {step === "number" && (
+                <>
+                  {/* Mode Toggle */}
+                  <div
+                    style={{
+                      display: "flex",
+                      background: theme.inputBg,
+                      borderRadius: 12,
+                      padding: 4,
+                      marginBottom: 20,
+                      border: `1px solid ${theme.inputBorder}`,
+                    }}
+                  >
+                    <button
+                      onClick={() => setMode("password")}
+                      style={{
+                        flex: 1,
+                        padding: 10,
+                        borderRadius: 8,
+                        fontSize: "0.85rem",
+                        fontWeight: 700,
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        border: "none",
+                        fontFamily: "inherit",
+                        background: mode === "password" ? theme.cardBg : "transparent",
+                        color: mode === "password" ? theme.accent : theme.textMuted,
+                        boxShadow: mode === "password" ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+                      }}
+                    >
+                      🔒 {t.withPass}
+                    </button>
+                    <button
+                      onClick={() => setMode("otp")}
+                      style={{
+                        flex: 1,
+                        padding: 10,
+                        borderRadius: 8,
+                        fontSize: "0.85rem",
+                        fontWeight: 700,
+                        textAlign: "center",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        border: "none",
+                        fontFamily: "inherit",
+                        background: mode === "otp" ? theme.cardBg : "transparent",
+                        color: mode === "otp" ? theme.accent : theme.textMuted,
+                        boxShadow: mode === "otp" ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+                      }}
+                    >
+                      📱 {t.withOtp}
+                    </button>
+                  </div>
+
+                  {/* Identifier Input */}
+                  <div style={{ position: "relative", marginBottom: 16 }}>
+                    {!isEmail && identifier.length > 0 && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          left: 16,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: theme.textMuted,
+                          fontWeight: 600,
+                          fontSize: "0.95rem",
+                          userSelect: "none",
+                        }}
+                      >
+                        🇮🇳 +91
+                      </span>
+                    )}
                     <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                      placeholder={t.passPh}
-                      onKeyDown={(e) => e.key === "Enter" && handlePasswordLogin()}
+                      type={isEmail ? "email" : "text"}
+                      value={identifier}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (/^\d+$/.test(val) && val.length > 10) return;
+                        setIdentifier(val.trim()); setError("");
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && (mode === "password" ? handlePasswordLogin() : handleSendOtp())}
+                      placeholder={t.identPh}
+                      autoFocus
                       style={{
                         ...inputBaseStyle,
-                        paddingRight: 48,
+                        paddingLeft: (!isEmail && identifier.length > 0) ? "76px" : "16px",
                       }}
                       onFocus={inputFocusStyle}
                       onBlur={inputBlurStyle}
                     />
+                  </div>
+
+                  {/* Password Input with Show/Hide */}
+                  {mode === "password" && (
+                    <>
+                      <div style={{ position: "relative", marginBottom: 12 }}>
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                          placeholder={t.passPh}
+                          onKeyDown={(e) => e.key === "Enter" && handlePasswordLogin()}
+                          style={{
+                            ...inputBaseStyle,
+                            paddingRight: 48,
+                          }}
+                          onFocus={inputFocusStyle}
+                          onBlur={inputBlurStyle}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{
+                            position: "absolute",
+                            right: 12,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            background: "none",
+                            border: "none",
+                            color: theme.textMuted,
+                            cursor: "pointer",
+                            padding: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "color 0.2s",
+                            borderRadius: 6,
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.color = theme.accent;
+                            (e.currentTarget as HTMLElement).style.background = theme.accentLight;
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.color = theme.textMuted;
+                            (e.currentTarget as HTMLElement).style.background = "transparent";
+                          }}
+                          title={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeClosed /> : <EyeOpen />}
+                        </button>
+                      </div>
+                      <div style={{ textAlign: "right", marginBottom: 20 }}>
+                        <button
+                          onClick={handleForgotPassword}
+                          style={{
+                            color: theme.accent,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            background: "none",
+                            border: "none",
+                            fontSize: "0.85rem",
+                            padding: 0,
+                          }}
+                        >
+                          {t.forgotPass}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {error && <div style={errorBoxStyle}>{error}</div>}
+
+                  {/* Action Button */}
+                  {mode === "password" ? (
                     <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={handlePasswordLogin}
+                      disabled={loading || !isValidInput || !password}
                       style={{
-                        position: "absolute",
-                        right: 12,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: theme.textMuted,
-                        cursor: "pointer",
-                        padding: 4,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        transition: "color 0.2s",
-                        borderRadius: 6,
+                        ...btnPrimaryStyle,
+                        opacity: loading || !isValidInput || !password ? 0.6 : 1,
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLElement).style.color = theme.accent;
-                        (e.currentTarget as HTMLElement).style.background = theme.accentLight;
+                        if (!loading && isValidInput && password) {
+                          (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                          (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLElement).style.color = theme.textMuted;
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                        (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
                       }}
-                      title={showPassword ? "Hide password" : "Show password"}
                     >
-                      {showPassword ? <EyeClosed /> : <EyeOpen />}
+                      {loading ? t.loggingIn : t.login}
                     </button>
-                  </div>
-                  <div style={{ textAlign: "right", marginBottom: 20 }}>
+                  ) : (
                     <button
-                      onClick={handleForgotPassword}
+                      onClick={handleSendOtp}
+                      disabled={loading || !isValidInput}
+                      style={{
+                        ...btnPrimaryStyle,
+                        opacity: loading || !isValidInput ? 0.6 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!loading && isValidInput) {
+                          (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                          (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                        (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
+                      }}
+                    >
+                      {loading ? t.sending : t.sendOtp}
+                    </button>
+                  )}
+
+                  {/* Divider */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      textAlign: "center",
+                      margin: "24px 0",
+                      color: theme.textMuted,
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ flex: 1, height: 1, background: theme.divider }} />
+                    <span style={{ padding: "0 12px" }}>{t.orGoogle}</span>
+                    <span style={{ flex: 1, height: 1, background: theme.divider }} />
+                  </div>
+
+                  {/* Google Button */}
+                  <button
+                    onClick={handleGoogleLogin}
+                    style={{
+                      background: theme.cardBg,
+                      border: `1px solid ${theme.inputBorder}`,
+                      color: theme.textPrimary,
+                      width: "100%",
+                      padding: 12,
+                      borderRadius: 12,
+                      fontWeight: 700,
+                      fontSize: "0.95rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 10,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = theme.accentBorder;
+                      (e.currentTarget as HTMLElement).style.background = theme.inputBg;
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = theme.inputBorder;
+                      (e.currentTarget as HTMLElement).style.background = theme.cardBg;
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    {t.google}
+                  </button>
+
+                  {/* New User Note */}
+                  <div
+                    style={{
+                      marginTop: 24,
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      color: theme.textMuted,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {t.newUser}
+                  </div>
+                </>
+              )}
+
+              {/* ── STEP: OTP ── */}
+              {step === "otp" && (
+                <>
+                  <div
+                    style={{
+                      fontSize: "0.9rem",
+                      color: theme.textSecondary,
+                      marginBottom: 20,
+                      textAlign: "center",
+                    }}
+                  >
+                    {t.sentTo(identifier)}{" "}
+                    <button
+                      onClick={() => { setStep("number"); setError(""); }}
                       style={{
                         color: theme.accent,
                         fontWeight: 700,
@@ -687,322 +997,175 @@ export default function LoginModal({ lang, dark, onClose, onSuccess }: LoginModa
                         padding: 0,
                       }}
                     >
-                      {t.forgotPass}
+                      {t.change}
                     </button>
+                  </div>
+
+                  {/* OTP Grid */}
+                  <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 24 }}>
+                    {otp.map((v, i) => (
+                      <input
+                        key={i}
+                        id={`otp-inp-${i}`}
+                        value={v}
+                        onChange={(e) => handleOtpChange(i, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                        maxLength={1}
+                        inputMode="numeric"
+                        autoFocus={i === 0}
+                        style={{
+                          width: 48,
+                          height: 56,
+                          border: `1px solid ${theme.inputBorder}`,
+                          borderRadius: 12,
+                          background: theme.inputBg,
+                          color: theme.inputText,
+                          fontSize: "1.5rem",
+                          fontWeight: 800,
+                          textAlign: "center",
+                          outline: "none",
+                          transition: "all 0.2s",
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = theme.accent;
+                          e.currentTarget.style.background = theme.modalBg;
+                          e.currentTarget.style.boxShadow = `0 0 0 4px ${theme.accentBorder}`;
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = theme.inputBorder;
+                          e.currentTarget.style.background = theme.inputBg;
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {error && <div style={errorBoxStyle}>{error}</div>}
+
+                  <button
+                    onClick={handleVerify}
+                    disabled={loading || otp.join("").length !== 6}
+                    style={{
+                      ...btnPrimaryStyle,
+                      marginBottom: 16,
+                      opacity: loading || otp.join("").length !== 6 ? 0.6 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loading && otp.join("").length === 6) {
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                        (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
+                    }}
+                  >
+                    {loading ? t.verifying : t.verify}
+                  </button>
+
+                  <div
+                    style={{
+                      textAlign: "center",
+                      fontSize: "0.85rem",
+                      color: theme.textMuted,
+                    }}
+                  >
+                    {timer > 0 ? (
+                      <span>{t.resendIn(timer)}</span>
+                    ) : (
+                      <button
+                        onClick={handleSendOtp}
+                        style={{
+                          color: theme.accent,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          background: "none",
+                          border: "none",
+                          fontSize: "0.85rem",
+                          padding: 0,
+                        }}
+                      >
+                        {t.resend}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
 
-              {error && <div style={errorBoxStyle}>{error}</div>}
-
-              {/* Action Button */}
-              {mode === "password" ? (
-                <button
-                  onClick={handlePasswordLogin}
-                  disabled={loading || !isValidInput || !password}
-                  style={{
-                    ...btnPrimaryStyle,
-                    opacity: loading || !isValidInput || !password ? 0.6 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading && isValidInput && password) {
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                      (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                    (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
-                  }}
-                >
-                  {loading ? t.loggingIn : t.login}
-                </button>
-              ) : (
-                <button
-                  onClick={handleSendOtp}
-                  disabled={loading || !isValidInput}
-                  style={{
-                    ...btnPrimaryStyle,
-                    opacity: loading || !isValidInput ? 0.6 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading && isValidInput) {
-                      (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                      (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                    (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
-                  }}
-                >
-                  {loading ? t.sending : t.sendOtp}
-                </button>
-              )}
-
-              {/* Divider */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  textAlign: "center",
-                  margin: "24px 0",
-                  color: theme.textMuted,
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                }}
-              >
-                <span style={{ flex: 1, height: 1, background: theme.divider }} />
-                <span style={{ padding: "0 12px" }}>{t.orGoogle}</span>
-                <span style={{ flex: 1, height: 1, background: theme.divider }} />
-              </div>
-
-              {/* Google Button */}
-              <button
-                onClick={handleGoogleLogin}
-                style={{
-                  background: theme.cardBg,
-                  border: `1px solid ${theme.inputBorder}`,
-                  color: theme.textPrimary,
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 12,
-                  fontWeight: 700,
-                  fontSize: "0.95rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 10,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = theme.accentBorder;
-                  (e.currentTarget as HTMLElement).style.background = theme.inputBg;
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = theme.inputBorder;
-                  (e.currentTarget as HTMLElement).style.background = theme.cardBg;
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                {t.google}
-              </button>
-
-              {/* New User Note */}
-              <div
-                style={{
-                  marginTop: 24,
-                  textAlign: "center",
-                  fontSize: "0.8rem",
-                  color: theme.textMuted,
-                  fontWeight: 500,
-                }}
-              >
-                {t.newUser}
-              </div>
-            </>
-          )}
-
-          {/* ── STEP: OTP ── */}
-          {step === "otp" && (
-            <>
-              <div
-                style={{
-                  fontSize: "0.9rem",
-                  color: theme.textSecondary,
-                  marginBottom: 20,
-                  textAlign: "center",
-                }}
-              >
-                {t.sentTo(identifier)}{" "}
-                <button
-                  onClick={() => { setStep("number"); setError(""); }}
-                  style={{
-                    color: theme.accent,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    background: "none",
-                    border: "none",
-                    fontSize: "0.85rem",
-                    padding: 0,
-                  }}
-                >
-                  {t.change}
-                </button>
-              </div>
-
-              {/* OTP Grid */}
-              <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 24 }}>
-                {otp.map((v, i) => (
-                  <input
-                    key={i}
-                    id={`otp-inp-${i}`}
-                    value={v}
-                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                    maxLength={1}
-                    inputMode="numeric"
-                    autoFocus={i === 0}
+              {/* ── STEP: SET PASSWORD ── */}
+              {step === "set-password" && (
+                <>
+                  <div
                     style={{
-                      width: 48,
-                      height: 56,
-                      border: `1px solid ${theme.inputBorder}`,
-                      borderRadius: 12,
-                      background: theme.inputBg,
-                      color: theme.inputText,
-                      fontSize: "1.5rem",
-                      fontWeight: 800,
+                      fontSize: "0.9rem",
+                      color: theme.textSecondary,
+                      lineHeight: 1.6,
+                      marginBottom: 20,
                       textAlign: "center",
-                      outline: "none",
-                      transition: "all 0.2s",
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = theme.accent;
-                      e.currentTarget.style.background = theme.modalBg;
-                      e.currentTarget.style.boxShadow = `0 0 0 4px ${theme.accentBorder}`;
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = theme.inputBorder;
-                      e.currentTarget.style.background = theme.inputBg;
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  />
-                ))}
-              </div>
-
-              {error && <div style={errorBoxStyle}>{error}</div>}
-
-              <button
-                onClick={handleVerify}
-                disabled={loading || otp.join("").length !== 6}
-                style={{
-                  ...btnPrimaryStyle,
-                  marginBottom: 16,
-                  opacity: loading || otp.join("").length !== 6 ? 0.6 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!loading && otp.join("").length === 6) {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                    (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
-                }}
-              >
-                {loading ? t.verifying : t.verify}
-              </button>
-
-              <div
-                style={{
-                  textAlign: "center",
-                  fontSize: "0.85rem",
-                  color: theme.textMuted,
-                }}
-              >
-                {timer > 0 ? (
-                  <span>{t.resendIn(timer)}</span>
-                ) : (
-                  <button
-                    onClick={handleSendOtp}
-                    style={{
-                      color: theme.accent,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      background: "none",
-                      border: "none",
-                      fontSize: "0.85rem",
-                      padding: 0,
                     }}
                   >
-                    {t.resend}
+                    {t.setPassNote}
+                  </div>
+                  <input
+                    type="password"
+                    value={newPass}
+                    onChange={(e) => { setNewPass(e.target.value); setError(""); }}
+                    placeholder={t.newPassPh}
+                    onKeyDown={(e) => e.key === "Enter" && handleSetPassword(false)}
+                    style={{ ...inputBaseStyle, marginBottom: 16 }}
+                    onFocus={inputFocusStyle}
+                    onBlur={inputBlurStyle}
+                  />
+
+                  {error && <div style={errorBoxStyle}>{error}</div>}
+
+                  <button
+                    onClick={() => handleSetPassword(false)}
+                    disabled={loading}
+                    style={{
+                      ...btnPrimaryStyle,
+                      marginBottom: 12,
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
+                    }}
+                  >
+                    {loading ? "..." : t.setPass}
                   </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* ── STEP: SET PASSWORD ── */}
-          {step === "set-password" && (
-            <>
-              <div
-                style={{
-                  fontSize: "0.9rem",
-                  color: theme.textSecondary,
-                  lineHeight: 1.6,
-                  marginBottom: 20,
-                  textAlign: "center",
-                }}
-              >
-                {t.setPassNote}
-              </div>
-              <input
-                type="password"
-                value={newPass}
-                onChange={(e) => { setNewPass(e.target.value); setError(""); }}
-                placeholder={t.newPassPh}
-                onKeyDown={(e) => e.key === "Enter" && handleSetPassword(false)}
-                style={{ ...inputBaseStyle, marginBottom: 16 }}
-                onFocus={inputFocusStyle}
-                onBlur={inputBlurStyle}
-              />
-
-              {error && <div style={errorBoxStyle}>{error}</div>}
-
-              <button
-                onClick={() => handleSetPassword(false)}
-                disabled={loading}
-                style={{
-                  ...btnPrimaryStyle,
-                  marginBottom: 12,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 16px ${theme.btnPrimaryGlow}`;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 12px ${theme.btnPrimaryGlow}`;
-                }}
-              >
-                {loading ? "..." : t.setPass}
-              </button>
-              {!isResettingPass && (
-                <button
-                  onClick={() => handleSetPassword(true)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: theme.textMuted,
-                    width: "100%",
-                    padding: 12,
-                    borderRadius: 12,
-                    fontWeight: 700,
-                    fontSize: "0.95rem",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = theme.accent;
-                    (e.currentTarget as HTMLElement).style.background = theme.accentLight;
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = theme.textMuted;
-                    (e.currentTarget as HTMLElement).style.background = "transparent";
-                  }}
-                >
-                  {t.skip}
-                </button>
+                  {!isResettingPass && (
+                    <button
+                      onClick={() => handleSetPassword(true)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: theme.textMuted,
+                        width: "100%",
+                        padding: 12,
+                        borderRadius: 12,
+                        fontWeight: 700,
+                        fontSize: "0.95rem",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLElement).style.color = theme.accent;
+                        (e.currentTarget as HTMLElement).style.background = theme.accentLight;
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLElement).style.color = theme.textMuted;
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
+                    >
+                      {t.skip}
+                    </button>
+                  )}
+                </>
               )}
             </>
           )}

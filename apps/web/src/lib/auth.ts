@@ -32,14 +32,15 @@ export function otpExpiryTime(): string {
 }
 
 // ── Password hashing (using Web Crypto API — works on Edge runtime) ───────
-async function hashPassword(password: string): Promise<string> {
+export async function hashPassword(password: string): Promise<string> {
+
   const msgBuffer = new TextEncoder().encode(password);
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   const h = await hashPassword(password);
   return h === hash;
 }

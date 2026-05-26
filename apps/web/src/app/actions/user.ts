@@ -1,15 +1,13 @@
 "use server";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { getUserFromToken } from "@/lib/auth";
+import { getUserFromToken, hashPassword } from "@/lib/auth";
 import { cookies } from "next/headers";
 
-// If you use bcrypt to hash passwords in lib/auth, import it here. 
-// Otherwise, we will use standard hashing.
-import { hash } from "bcryptjs"; 
+
 
 async function getAuthUser() {
-	const cookie = await cookies();
+  const cookie = await cookies();
   const token = cookie.get("csc_token")?.value;
   if (!token) return null;
   return await getUserFromToken(token);
@@ -21,12 +19,21 @@ export async function updateUserProfile(data: { name?: string; mobile?: string; 
     const user = await getAuthUser();
     if (!user) throw new Error("Unauthorized");
 
+    // check if mobile is being updated and if it's already taken by another user
+    if (data.mobile) {
+      const { data: existingUser, error: e } = await supabaseAdmin.from("users").select("id").eq("mobile", data.mobile).single();
+      if (e && e.code !== "PGRST116") throw e;
+      if (existingUser && existingUser.id !== user.sub) {
+        throw new Error("Mobile number already in use");
+      }
+    }
+
     const { error } = await supabaseAdmin.from("users").update(data).eq("id", user.sub);
     if (error) throw error;
-    
-    return { success: true };
+
+    return { success: true, message: "Profile updated successfully" };
   } catch (err: any) {
-    return { success: false, error: err.message };
+    return { success: false, error: err.message, message: "Failed to update profile" };
   }
 }
 
@@ -37,7 +44,7 @@ export async function updatePasswordAction(newPassword: string) {
     if (!user) throw new Error("Unauthorized");
 
     // Securely hash the password before saving
-    const hashedPassword = await hash(newPassword, 10);
+    const hashedPassword = await hashPassword(newPassword);
 
     const { error } = await supabaseAdmin
       .from("users")
@@ -63,7 +70,7 @@ export async function topUpWalletAction(amount: number) {
       .select("wallet_balance")
       .eq("id", user.sub)
       .single();
-      
+
     if (fetchErr || !dbUser) throw new Error("Could not fetch wallet");
 
     const newBalance = Number(dbUser.wallet_balance) + Number(amount);

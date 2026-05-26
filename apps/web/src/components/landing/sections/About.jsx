@@ -109,11 +109,16 @@ const highlights = [
 ];
 
 const portals = [
-  { title: "Admin Analytics", desc: "View center growth and revenue metrics.", link: "http://localhost/admin/analytics", icon: BarChart },
-  { title: "OCR Transactions", desc: "Add & manage automated cash transactions.", link: "http://localhost/admin/transactions", icon: Upload },
-  { title: "User Dashboard", desc: "Client portal for managing their requests.", link: "http://localhost/dashboard", icon: Users },
-  { title: "Request Status", desc: "Live tracking of user applications.", link: "http://localhost/status", icon: CheckCircle },
-  { title: "Create Notice/Post", desc: "Admin portal to broadcast updates.", link: "http://localhost/admin/posts/create", icon: FileText },
+  { title: "Admin Dashboard", desc: "Client portal for managing their requests.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin`, icon: Users },
+  { title: "Admin Analytics", desc: "View center growth and revenue metrics.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/analytics`, icon: BarChart },
+  { title: "OCR Transactions", desc: "Add & manage automated cash transactions.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/transactions`, icon: Upload },
+  { title: "Manage Forms", desc: "Admin portal to update and manage forms.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/forms`, icon: Mail },
+  { title: "Manage Gallery", desc: "Admin portal to upload and manage gallery images.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/galary`, icon: Smartphone },
+  { title: "Manage Posts/Notices", desc: "Admin portal to create and manage posts.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/posts`, icon: CheckCircle },
+  { title: "Create Notice/Post", desc: "Admin portal to broadcast updates.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/posts/create`, icon: FileText },
+  { title: "Manage Courses", desc: "Admin portal to manage training courses.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/courses`, icon: ShieldCheck },
+  { title: "Create Course", desc: "Admin portal to create new training courses.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/courses/create`, icon: CreditCard },
+  { title: "Verify Bookings", desc: "Admin portal to verify student bookings.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/verify`, icon: MapPin },
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════

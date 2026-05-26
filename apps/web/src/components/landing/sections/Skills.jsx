@@ -18,7 +18,8 @@ import {
   UploadIcon,
   FileCheck2Icon,
   BarChart2Icon,
-  ExternalLinkIcon
+  ExternalLinkIcon,
+  SettingsIcon
 } from 'lucide-react';
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -181,15 +182,13 @@ const marqueeSkills = categories.flatMap(c => c.items);
 // ── Portals ──
 const portals = [
   { title: "User Dashboard", desc: "Client portal for managing their requests.", link: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`, icon: <Users2Icon /> },
+  { title: "Profile & Settings", desc: "Manage your profile and preferences.", link: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/profile`, icon: <SettingsIcon /> },
   { title: "Request Status", desc: "Live tracking of user applications.", link: `${process.env.NEXT_PUBLIC_APP_URL}/status`, icon: <CheckCircle2Icon /> },
   { title: "See all posts/notices", desc: "Browse latest updates and announcements.", link: `${process.env.NEXT_PUBLIC_APP_URL}/posts`, icon: <ScrollTextIcon /> },
+  { title: "See all courses", desc: "Browse available training courses.", link: `${process.env.NEXT_PUBLIC_APP_URL}/courses`, icon: <FileTextIcon /> },
   { title: "See all galary images", desc: "Browse the galary of works.", link: `${process.env.NEXT_PUBLIC_APP_URL}/galary`, icon: <ExternalLinkIcon /> },
   { title: "See all notifications", desc: "Browse latest notifications.", link: `${process.env.NEXT_PUBLIC_APP_URL}/notifications`, icon: <ExternalLinkIcon /> },
-  { title: "Upload the galary image", desc: "Admin portal to upload galary images.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/galary`, icon: <UploadIcon /> },
-  { title: "Create Notice/Post", desc: "Admin portal to broadcast updates.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/posts/create`, icon: <FileTextIcon /> },
-  { title: "Update/Delete Posts", desc: "Admin portal to manage existing posts.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/posts`, icon: <FileCheck2Icon /> },
-  { title: "Admin Analytics", desc: "View center growth and revenue metrics.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/analytics`, icon: <BarChart2Icon /> },
-  { title: "OCR Transactions", desc: "Add & manage automated cash transactions.", link: `${process.env.NEXT_PUBLIC_APP_URL}/admin/transactions`, icon: <UploadIcon /> },
+  { title: "Assigned Deliveries", desc: "Track deliveries assigned to you.", link: `${process.env.NEXT_PUBLIC_APP_URL}/delivery`, icon: <ExternalLinkIcon /> },
 ];
 
 // ── Certifications ──

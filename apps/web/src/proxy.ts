@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ─── Route protection rules ─────────────────────────────────────────────────
 // Public routes — no login needed
-const PUBLIC_ROUTES = ["/", "/status", "/verify"];
+const PUBLIC_ROUTES = ["/", "/status", "/verify", "posts", "galary", "/courses"];
 
 // User routes — any logged-in user
 const USER_ROUTES = ["/dashboard"];
@@ -15,7 +15,7 @@ export function proxy(request: NextRequest) {
 
   // Read JWT token from cookie (set after login)
   const token = request.cookies.get("csc_token")?.value;
-  const role  = request.cookies.get("csc_role")?.value;  // "user" | "co_admin" | "main_admin"
+  const role = request.cookies.get("csc_role")?.value;  // "user" | "co_admin" | "main_admin"
 
   // ── Allow public routes always ──
   if (PUBLIC_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
@@ -31,9 +31,14 @@ export function proxy(request: NextRequest) {
 
   // ── Admin routes: require main_admin or co_admin role ──
   if (ADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
+    // if (role !== "main_admin" && role !== "co_admin") {
+    //   // Logged in but not admin → send to user dashboard
+    //   return NextResponse.redirect(new URL("/dashboard", request.url));
+    // }
     if (role !== "main_admin" && role !== "co_admin") {
-      // Logged in but not admin → send to user dashboard
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      const homeUrl = new URL("/", request.url);
+      homeUrl.searchParams.set("roleAlert", "1"); // ← triggers modal on landing page
+      return NextResponse.redirect(homeUrl);
     }
     return NextResponse.next();
   }

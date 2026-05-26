@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const token = jwt.sign(jwtPayload, process.env.JWT_SECRET || "fallback", { expiresIn: '30d' });
 
     // 5. Set Cookies
-    const res = NextResponse.json({ success: true, user });
+    const res = NextResponse.json({ success: true, token, user });
     const cookieOpts = {
       httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, maxAge: 60 * 60 * 24 * 30, path: "/",
     };

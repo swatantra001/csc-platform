@@ -1,23 +1,47 @@
+
+
+
+// D:\csc-platform\apps\web\src\app\status\page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { getPublicRequestStatusAction } from "@/app/actions/status";
 import dynamic from "next/dynamic";
-import { useAuth } from "@/components/AuthProvider";
+import { useSearchParams } from "next/navigation";
 
 const LiveDeliveryMap = dynamic(() => import("@/components/LiveDeliveryMap"), {
   ssr: false,
   loading: () => (
-    <div style={{ height: 400, width: "100%", background: "var(--skeleton)", borderRadius: 12, marginTop: 24, border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontWeight: 700 }}>
-      Loading Map Engine…
+    <div style={{ 
+      height: 400, 
+      background: "#1e293b", 
+      borderRadius: 12, 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "center",
+      color: "#94a3b8",
+      fontWeight: 700 
+    }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ 
+          width: 40, 
+          height: 40, 
+          border: "3px solid rgba(255,255,255,0.1)", 
+          borderTopColor: "#10b981", 
+          borderRadius: "50%", 
+          animation: "spin 1s linear infinite",
+          margin: "0 auto 12px"
+        }} />
+        Loading Live Map...
+      </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   ),
 });
 
+// ─── Types ───
 type Lang = "hi" | "en";
 type StatusKey = "submitted" | "seen" | "processing" | "done" | "payment_pending";
-
-type TranslationLabels = Record<StatusKey, string>;
 
 interface Translations {
   pageTitle: string;
@@ -41,7 +65,10 @@ interface Translations {
   callCenter: string;
   newRequest: string;
   loginForMore: string;
-  statusLabels: TranslationLabels;
+  liveTracking: string;
+  agentLocation: string;
+  deliveryPath: string;
+  statusLabels: Record<StatusKey, string>;
 }
 
 interface TimelineEvent {
@@ -67,9 +94,15 @@ interface RequestResult {
   paymentPending: boolean;
   paymentAmount?: number;
   delivery_status?: string;
+  address?: {
+    lat?: number;
+    lng?: number;
+    full_address?: string;
+  };
   timeline: TimelineEvent[];
 }
 
+// ─── Translations ───
 const COPY: Record<Lang, Translations> = {
   hi: {
     pageTitle: "आवेदन की स्थिति",
@@ -93,6 +126,9 @@ const COPY: Record<Lang, Translations> = {
     callCenter: "सहायता के लिए संपर्क करें",
     newRequest: "नया आवेदन",
     loginForMore: "विस्तृत जानकारी के लिए लॉगिन करें",
+    liveTracking: "लाइव ट्रैकिंग",
+    agentLocation: "एजेंट की स्थिति",
+    deliveryPath: "डिलीवरी मार्ग",
     statusLabels: {
       submitted: "जमा किया गया",
       seen: "कार्यालय में प्राप्त",
@@ -123,6 +159,9 @@ const COPY: Record<Lang, Translations> = {
     callCenter: "Contact for Help",
     newRequest: "New Application",
     loginForMore: "Login for detailed view",
+    liveTracking: "Live Tracking",
+    agentLocation: "Agent Location",
+    deliveryPath: "Delivery Path",
     statusLabels: {
       submitted: "Submitted",
       seen: "Received at Office",
@@ -133,6 +172,7 @@ const COPY: Record<Lang, Translations> = {
   },
 };
 
+// ─── Theme ───
 const THEMES = {
   light: {
     pageBg: "#f1f5f9",
@@ -190,6 +230,8 @@ const THEMES = {
     docIconColor: "#dc2626",
     toggleIcon: "🌙",
     toggleLabel: "Dark",
+    livePulse: "#22c55e",
+    livePulseBg: "#dcfce7",
   },
   dark: {
     pageBg: "#060b14",
@@ -247,21 +289,14 @@ const THEMES = {
     docIconColor: "#f87171",
     toggleIcon: "☀️",
     toggleLabel: "Light",
+    livePulse: "#34d399",
+    livePulseBg: "rgba(52,211,153,0.1)",
   },
 } as const;
 
 type ThemeTokens = typeof THEMES.light;
 
-const NAV_LINKS = [
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard" : "http://localhost:3000/dashboard", icon: "📱", label: "Dashboard" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/posts" : "http://localhost:3000/posts", icon: "✏️", label: "Posts" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/galary" : "http://localhost:3000/galary", icon: "🖼️", label: "Gallery" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/notifications" : "http://localhost:3000/notifications", icon: "🔔", label: "Notifications" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/dashboard/profile" : "http://localhost:3000/dashboard/profile", icon: "👤", label: "Profile" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/status" : "http://localhost:3000/status", icon: "📊", label: "Status" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/delivery" : "http://localhost:3000/delivery", icon: "📦", label: "Delivery" },
-];
-
+// ─── Status Config ───
 const STATUS_CFG = {
   submitted: { color: "#d97706", bg: "rgba(217,119,6,0.1)", border: "rgba(217,119,6,0.3)", dot: "#f59e0b", label: "Submitted", icon: "📤" },
   seen: { color: "#2563eb", bg: "rgba(37,99,235,0.1)", border: "rgba(37,99,235,0.3)", dot: "#3b82f6", label: "Seen", icon: "👁️" },
@@ -270,16 +305,14 @@ const STATUS_CFG = {
   payment_pending: { color: "#dc2626", bg: "rgba(220,38,38,0.1)", border: "rgba(220,38,38,0.3)", dot: "#ef4444", label: "Payment", icon: "💳" },
 } as const;
 
+// ─── Icons ───
 const Ico = {
   Search: () => <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>,
   X: () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
   Check: () => <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>,
-  Download: () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>,
-  Doc: () => <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>,
-  Pay: () => <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>,
-  Plus: () => <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>,
 };
 
+// ─── CSS Builder ───
 function buildCss(T: ThemeTokens): string {
   return `
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -295,6 +328,7 @@ body{font-family:'DM Sans',sans-serif;}
 @keyframes stampIn{from{opacity:0;transform:scale(1.4) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(0deg)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes livePulse{0%,100%{box-shadow:0 0 0 0 ${T.livePulse}40}50%{box-shadow:0 0 0 10px ${T.livePulse}00}}
 
 .top-nav-link{
   display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;
@@ -318,8 +352,6 @@ body{font-family:'DM Sans',sans-serif;}
 .btn-p:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 4px 14px ${T.btnPrimaryGlow};}
 .btn-g{background:${T.btnGhostBg};color:${T.btnGhostText};border:1px solid ${T.btnGhostBorder};}
 .btn-g:hover{background:${T.btnGhostHoverBg};color:${T.btnGhostHoverText};border-color:${T.accentBorder};}
-.btn-d{background:${T.btnDangerBg};color:${T.btnDangerText};border:1px solid ${T.btnDangerBorder};}
-.btn-d:hover{filter:brightness(.95);}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;}
 
 .inp{
@@ -344,6 +376,7 @@ body{font-family:'DM Sans',sans-serif;}
 .tog:hover{border-color:${T.navBottomBorder};color:${T.navTextHover};}
 
 .pulse-dot{animation:pulse 2s ease-in-out infinite;}
+.live-badge{animation:livePulse 2s ease-in-out infinite;}
 `;
 }
 
@@ -356,7 +389,8 @@ function SecHdr({ icon, label }: { icon: string; label: string }) {
   );
 }
 
-export default function PublicStatusTracker() {
+// ─── Main Component with Suspense boundary for useSearchParams ───
+function StatusTrackerContent() {
   const [lang, setLang] = useState<Lang>("en");
   const [isDark, setIsDark] = useState(false);
   const [query, setQuery] = useState("");
@@ -365,9 +399,8 @@ export default function PublicStatusTracker() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const { user, isLoggedIn, logout, loading: authLoading } = useAuth();
-
+  
+  const searchParams = useSearchParams();
 
   const T = isDark ? THEMES.dark : THEMES.light;
   const t = COPY[lang];
@@ -376,24 +409,24 @@ export default function PublicStatusTracker() {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     setIsDark(mq.matches);
     mq.addEventListener("change", (e) => setIsDark(e.matches));
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get("q");
+    
+    // Check URL params
+    const q = searchParams.get("q");
     if (q) {
       setQuery(q);
       handleSearch(q);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("csc_theme");
     if (savedTheme) setIsDark(savedTheme === "dark");
-    else setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
-  }, [user]);
+  }, []);
 
-  // ─── HANDLERS ─── (Preserved Exactly)
   const toggleTheme = () => {
-    const newDark = !isDark; setIsDark(newDark);
+    const newDark = !isDark;
+    setIsDark(newDark);
     localStorage.setItem("csc_theme", newDark ? "dark" : "light");
   };
 
@@ -407,8 +440,12 @@ export default function PublicStatusTracker() {
 
     try {
       const found = await getPublicRequestStatusAction(searchQuery);
-      setResult(found as any);
-      setNotFound(!found);
+      if (found) {
+        setResult(found as RequestResult);
+        setNotFound(false);
+      } else {
+        setNotFound(true);
+      }
     } catch (error) {
       console.error(error);
       setNotFound(true);
@@ -421,9 +458,7 @@ export default function PublicStatusTracker() {
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: T.pageBg, color: T.textPrimary, fontFamily: "'DM Sans', sans-serif", transition: "background .25s, color .25s" }}>
       <style dangerouslySetInnerHTML={{ __html: buildCss(T as any) }} />
 
-      {/* ════════════════════════════════════════════════════════
-          HEADER — deep indigo, consistent with Admin Panel
-      ════════════════════════════════════════════════════════ */}
+      {/* Header */}
       <header style={{ background: T.navBg, borderBottom: `3px solid ${T.navBottomBorder}`, flexShrink: 0, zIndex: 100, boxShadow: "0 2px 16px rgba(0,0,0,0.18)" }}>
         <div style={{ display: "flex", alignItems: "center", height: 54, padding: "0 20px", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
@@ -439,7 +474,15 @@ export default function PublicStatusTracker() {
           <div style={{ width: 1, height: 26, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
 
           <nav style={{ display: "flex", gap: 3, flex: 1, overflowX: "auto" }}>
-            {NAV_LINKS.map((l) => (
+            {[
+              { href: "/", icon: "🏠", label: "Home" },
+              { href: "/dashboard", icon: "📱", label: "Dashboard" },
+              { href: "/posts", icon: "✏️", label: "Posts" },
+              { href: "/galary", icon: "🖼️", label: "Gallery" },
+              { href: "/notifications", icon: "🔔", label: "Notifications" },
+              { href: "/status", icon: "📊", label: "Status" },
+              { href: "/delivery", icon: "📦", label: "Delivery" },
+            ].map((l) => (
               <a key={l.href} href={l.href} className="top-nav-link">
                 <span style={{ fontSize: 13 }}>{l.icon}</span> {l.label}
               </a>
@@ -462,13 +505,11 @@ export default function PublicStatusTracker() {
         </div>
       </header>
 
-      {/* ════════════════════════════════════════════════════════
-          MAIN CONTENT
-      ════════════════════════════════════════════════════════ */}
+      {/* Main Content */}
       <main style={{ flex: 1, overflowY: "auto", padding: "40px 24px" }}>
         <div style={{ maxWidth: 760, margin: "0 auto" }}>
 
-          {/* Page header */}
+          {/* Page Header */}
           <div style={{ textAlign: "center", marginBottom: 36, animation: "fadeIn 0.4s ease" }}>
             <div style={{ width: 72, height: 72, borderRadius: 18, background: T.accentLight, border: `1px solid ${T.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 18px" }}>
               🏛️
@@ -513,9 +554,10 @@ export default function PublicStatusTracker() {
                 </button>
               </div>
 
+              {/* Quick search examples */}
               <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={{ fontSize: 11, color: T.textMuted }}>{lang === "hi" ? "उदाहरण:" : "Try:"}</span>
-                {["REQ-2025-001", "REQ-2025-002", "REQ-2025-003"].map((s) => (
+                {["9876543210", "REQ-2025-001"].map((s) => (
                   <button key={s} className="pill" onClick={() => { setQuery(s); handleSearch(s); }}>
                     {s}
                   </button>
@@ -525,7 +567,7 @@ export default function PublicStatusTracker() {
           </div>
 
           {/* ════════════════════════════════════════════════════════
-              RESULT
+              RESULT WITH LIVE TRACKING
           ════════════════════════════════════════════════════════ */}
           {result && !loading && (
             <div style={{ animation: "fadeIn 0.4s ease" }}>
@@ -675,10 +717,69 @@ export default function PublicStatusTracker() {
                 </div>
               </div>
 
-              {/* Live Map */}
+              {/* ════════════════════════════════════════════════════════
+                  🛵 LIVE DELIVERY TRACKING MAP (Uber/WhatsApp Style)
+              ════════════════════════════════════════════════════════ */}
               {result.delivery_status === "out_for_delivery" && (
-                <div style={{ marginBottom: 20, animation: "fadeIn 0.5s ease" }}>
-                  <LiveDeliveryMap requestId={result.id} />
+                <div className="card" style={{ marginBottom: 20, overflow: "hidden" }}>
+                  {/* Live Badge Header */}
+                  <div style={{
+                    background: T.livePulseBg,
+                    borderBottom: `1px solid ${T.divider}`,
+                    padding: "12px 16px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}>
+                    <span 
+                      className="live-badge"
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        background: T.livePulse,
+                        display: "inline-block",
+                      }}
+                    />
+                    <span style={{ fontSize: 12, fontWeight: 800, color: T.livePulse, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {lang === "hi" ? "लाइव ट्रैकिंग चालू है" : "LIVE TRACKING ACTIVE"}
+                    </span>
+                    <span style={{ marginLeft: "auto", fontSize: 11, color: T.textMuted }}>
+                      {lang === "hi" ? "वास्तविक समय में अपडेट हो रहा है" : "Updating in real-time"}
+                    </span>
+                  </div>
+                  
+                  <LiveDeliveryMap
+                    requestId={result.id}
+                    destinationLat={result.address?.lat}
+                    destinationLng={result.address?.lng}
+                    destinationAddress={result.address?.full_address}
+                    isAgentView={false}
+                  />
+                  
+                  {/* Delivery Info Footer */}
+                  <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.divider}`, background: T.cardBg }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+                          {t.deliveryPath}
+                        </div>
+                        <div style={{ fontSize: 13, color: T.textSecondary }}>
+                          {lang === "hi" 
+                            ? "हरा रास्ता दिखाता है कि एजेंट कहाँ से आया है" 
+                            : "Green path shows where the agent has traveled from"}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 12, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>
+                          {t.agentLocation}
+                        </div>
+                        <div style={{ fontSize: 13, color: T.textSecondary }}>
+                          {lang === "hi" ? "नक्शे पर देखें" : "See on map"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -766,7 +867,7 @@ export default function PublicStatusTracker() {
               {lang === "hi" ? "सहायता के लिए" : "For assistance"}
             </div>
             <div className="serif" style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, marginBottom: 6 }}>
-              {lang === "hi" ? "जन सेवा केंद्र, बक्सा" : "Jan Seva Kendra, Shambhuganj"}
+              {lang === "hi" ? "जन सेवा केंद्र, शम्भुगंज" : "Jan Seva Kendra, Shambhuganj"}
             </div>
             <div style={{ fontSize: 13, color: T.textSecondary }}>
               {lang === "hi" ? "सोम–शनि: सुबह 9 बजे – शाम 6 बजे" : "Mon–Sat: 9 AM – 6 PM"}
@@ -775,5 +876,37 @@ export default function PublicStatusTracker() {
         </div>
       </main>
     </div>
+  );
+}
+
+// ─── Export with Suspense wrapper ───
+export default function PublicStatusTracker() {
+  return (
+    <Suspense fallback={
+      <div style={{ 
+        minHeight: "100vh", 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+        background: "#060b14",
+        color: "#94a3b8"
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ 
+            width: 48, 
+            height: 48, 
+            border: "3px solid rgba(255,255,255,0.1)", 
+            borderTopColor: "#f59e0b", 
+            borderRadius: "50%", 
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 16px"
+          }} />
+          <div style={{ fontWeight: 700 }}>Loading Status Tracker...</div>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </div>
+      </div>
+    }>
+      <StatusTrackerContent />
+    </Suspense>
   );
 }

@@ -15,6 +15,8 @@ import {
 } from "@/app/actions/admin";
 import { useAuth } from "@/components/AuthProvider";
 import CertificateGenerator from "@/components/admin/CertificateGenerator";
+import BulkCertificateGenerator from "@/components/admin/BulkCertificateGenerator";
+import { AuthGuard } from "@/components/AuthGuard";
 
 // ════════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -278,6 +280,8 @@ const STATUS_CFG = {
 const NAV_LINKS = [
   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin" : "http://localhost:3000/admin", icon: "👮", label: "Admin" },
   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/posts" : "http://localhost:3000/admin/posts", icon: "✏️", label: "Posts" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/courses" : "http://localhost:3000/admin/courses", icon: "📬", label: "Courses" },
+  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/verify" : "http://localhost:3000/admin/verify", icon: "✅", label: "Verify Course" },
   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/galary" : "http://localhost:3000/admin/galary", icon: "🖼️", label: "Gallery" },
   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/forms" : "http://localhost:3000/admin/forms", icon: "📋", label: "Forms" },
   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/transactions" : "http://localhost:3000/admin/transactions", icon: "💳", label: "Transactions" },
@@ -523,6 +527,7 @@ export default function CSCAdminPanel() {
   // Add this near your other states (around line 190)
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [certUser, setCertUser] = useState<DbUser | null>(null);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   // 2. Add this state near your other modals (around line 200)
   const [showDeliverySearch, setShowDeliverySearch] = useState(false);
@@ -815,799 +820,847 @@ export default function CSCAdminPanel() {
   // RENDER
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: T.pageBg, color: T.textPrimary, transition: "background .25s, color .25s" }}>
-      <style dangerouslySetInnerHTML={{ __html: buildCss(T as any) }} />
+    <AuthGuard allowedRoles={["co_admin", "main_admin"]}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: T.pageBg, color: T.textPrimary, transition: "background .25s, color .25s" }}>
+        <style dangerouslySetInnerHTML={{ __html: buildCss(T as any) }} />
 
-      {lightbox && <Lightbox src={lightbox.src} name={lightbox.name} onClose={() => setLightbox(null)} />}
+        {lightbox && <Lightbox src={lightbox.src} name={lightbox.name} onClose={() => setLightbox(null)} />}
 
-      {/* ════════════════════════════════════════════════════════
+        {/* ════════════════════════════════════════════════════════
           HEADER — navy indigo in both themes (like PostClient nav)
       ════════════════════════════════════════════════════════ */}
-      <header style={{ background: T.navBg, borderBottom: `3px solid ${T.navBottomBorder}`, flexShrink: 0, zIndex: 100, boxShadow: "0 2px 16px rgba(0,0,0,0.18)" }}>
+        <header style={{ background: T.navBg, borderBottom: `3px solid ${T.navBottomBorder}`, flexShrink: 0, zIndex: 100, boxShadow: "0 2px 16px rgba(0,0,0,0.18)" }}>
 
-        {/* Row 1 — brand + nav links + toggle + user */}
-        <div style={{ display: "flex", alignItems: "center", height: 54, padding: "0 20px", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          {/* Row 1 — brand + nav links + toggle + user */}
+          <div style={{ display: "flex", alignItems: "center", height: 54, padding: "0 20px", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
 
-          {/* Brand — PostClient style "SrilalCSC" */}
-          <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
-            <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
-            <div>
-              <div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
-                Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+            {/* Brand — PostClient style "SrilalCSC" */}
+            <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
+              <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
+              <div>
+                <div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
+                  Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+                </div>
+                <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em" }}>ADMIN PANEL</div>
               </div>
-              <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em" }}>ADMIN PANEL</div>
+            </a>
+
+            <div style={{ width: 1, height: 26, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
+
+
+            <div style={{ display: "flex", paddingLeft: 8, background: "rgba(0,0,0,0.12)" }}>
+              {[{ id: "requests", icon: "💬", label: "Support Chats" }, { id: "team", icon: "👥", label: "Team" }].map(tab => (
+                <button key={tab.id} className={`sec-tab ${activeTab === tab.id ? "on" : ""}`} onClick={() => setActiveTab(tab.id as "requests" | "team" | "post")}>
+                  <span style={{ fontSize: 17 }}>{tab.icon}</span>{tab.label}
+                </button>
+              ))}
             </div>
-          </a>
 
-          <div style={{ width: 1, height: 26, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
+            <div style={{ width: 1, height: 26, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
 
+            {/* Nav links */}
+            <nav style={{ display: "flex", gap: 3, flex: 1, overflowX: "auto" }}>
+              {NAV_LINKS.map(l => (
+                <a key={l.href} href={l.href} className="top-nav-link">
+                  <span style={{ fontSize: 13 }}>{l.icon}</span> {l.label}
+                </a>
+              ))}
+            </nav>
 
-          <div style={{ display: "flex", paddingLeft: 8, background: "rgba(0,0,0,0.12)" }}>
-            {[{ id: "requests", icon: "💬", label: "Support Chats" }, { id: "team", icon: "👥", label: "Team" }].map(tab => (
-              <button key={tab.id} className={`sec-tab ${activeTab === tab.id ? "on" : ""}`} onClick={() => setActiveTab(tab.id as "requests" | "team" | "post")}>
-                <span style={{ fontSize: 17 }}>{tab.icon}</span>{tab.label}
+            {/* ✨ UNLOCKS BROWSER SOUND & NOTIFICATIONS */}
+            {typeof window !== 'undefined' && Notification.permission !== "granted" && (
+              <button
+                onClick={() => {
+                  Notification.requestPermission().then(perm => {
+                    if (perm === "granted") {
+                      new Audio('/notify.mp3').play().catch(() => { }); // Unblocks browser audio policy
+                      alert("✅ Notifications & Sounds Enabled!");
+                    }
+                  });
+                }}
+                style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid #10b981", color: "#10b981", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+              >
+                🔕 Enable Alerts
               </button>
-            ))}
-          </div>
+            )}
 
-          <div style={{ width: 1, height: 26, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
 
-          {/* Nav links */}
-          <nav style={{ display: "flex", gap: 3, flex: 1, overflowX: "auto" }}>
-            {NAV_LINKS.map(l => (
-              <a key={l.href} href={l.href} className="top-nav-link">
-                <span style={{ fontSize: 13 }}>{l.icon}</span> {l.label}
-              </a>
-            ))}
-          </nav>
-
-          {/* ✨ UNLOCKS BROWSER SOUND & NOTIFICATIONS */}
-          {typeof window !== 'undefined' && Notification.permission !== "granted" && (
+            {/* ✨ BULK EXCEL UPLOAD BUTTON */}
             <button
-              onClick={() => {
-                Notification.requestPermission().then(perm => {
-                  if (perm === "granted") {
-                    new Audio('/notify.mp3').play().catch(() => { }); // Unblocks browser audio policy
-                    alert("✅ Notifications & Sounds Enabled!");
-                  }
-                });
+              onClick={() => setShowBulkUpload(true)}
+              style={{
+                background: isDark ? "rgba(245,158,11,0.15)" : "rgba(37,99,235,0.1)",
+                border: `1px solid ${isDark ? "#f59e0b" : "#2563eb"}`,
+                color: isDark ? "#f59e0b" : "#2563eb",
+                padding: "5px 12px",
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                transition: "all 0.2s",
               }}
-              style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid #10b981", color: "#10b981", padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = isDark ? "rgba(245,158,11,0.25)" : "rgba(37,99,235,0.2)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = isDark ? "rgba(245,158,11,0.15)" : "rgba(37,99,235,0.1)";
+              }}
             >
-              🔕 Enable Alerts
+              📊 Bulk Upload
             </button>
-          )}
 
-          {/* Theme toggle */}
-          <button className="tog" onClick={toggleTheme}>
-            <span style={{ fontSize: 14 }}>{T.toggleIcon}</span> {T.toggleLabel}
-          </button>
+            {/* Theme toggle */}
+            <button className="tog" onClick={toggleTheme}>
+              <span style={{ fontSize: 14 }}>{T.toggleIcon}</span> {T.toggleLabel}
+            </button>
 
-          {/* User chip */}
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "5px 12px", background: "rgba(255,255,255,0.1)", borderRadius: 9, border: "1px solid rgba(255,255,255,0.15)", flexShrink: 0 }}>
-            <Avatar name={currentUser?.name} size={28} role={currentUser?.role} isDark={isDark} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{currentUser?.name || "Admin"}</div>
-              <div className="mono" style={{ fontSize: 9, color: T.navBrandAccent, marginTop: 2, letterSpacing: ".07em" }}>{currentUser?.role?.replace("_", " ").toUpperCase()}</div>
+            {/* User chip */}
+            <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "5px 12px", background: "rgba(255,255,255,0.1)", borderRadius: 9, border: "1px solid rgba(255,255,255,0.15)", flexShrink: 0 }}>
+              <Avatar name={currentUser?.name} size={28} role={currentUser?.role} isDark={isDark} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{currentUser?.name || "Admin"}</div>
+                <div className="mono" style={{ fontSize: 9, color: T.navBrandAccent, marginTop: 2, letterSpacing: ".07em" }}>{currentUser?.role?.replace("_", " ").toUpperCase()}</div>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* ════════════════════════════════════════════════════════
+        {/* ════════════════════════════════════════════════════════
           BODY
       ════════════════════════════════════════════════════════ */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-        {/* ──────────────────────────────────────────────────
+          {/* ──────────────────────────────────────────────────
             REQUESTS TAB
         ────────────────────────────────────────────────── */}
-        {activeTab === "requests" && (
-          <>
-            {/* SIDEBAR */}
-            <div style={{ width: 360, borderRight: `1px solid ${T.divider}`, display: "flex", flexDirection: "column", background: T.sidebarBg, flexShrink: 0, boxShadow: isDark ? "none" : "2px 0 8px rgba(0,0,0,0.04)" }}>
+          {activeTab === "requests" && (
+            <>
+              {/* SIDEBAR */}
+              <div style={{ width: 360, borderRight: `1px solid ${T.divider}`, display: "flex", flexDirection: "column", background: T.sidebarBg, flexShrink: 0, boxShadow: isDark ? "none" : "2px 0 8px rgba(0,0,0,0.04)" }}>
 
-              {/* Sidebar header */}
-              <div style={{ padding: "12px 14px", borderBottom: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <div style={{ position: "relative", flex: 1 }}>
-                    <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
-                    <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search chats…" className="inp" style={{ paddingLeft: 33 }} />
+                {/* Sidebar header */}
+                <div style={{ padding: "12px 14px", borderBottom: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
+                      <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search chats…" className="inp" style={{ paddingLeft: 33 }} />
+                    </div>
+                    <button className="btn btn-g" style={{ fontSize: 12, padding: "7px 11px" }} onClick={() => { setIsSelectMode(!isSelectMode); setSelectedReqIds([]); }}>
+                      {isSelectMode ? "Cancel" : "Select"}
+                    </button>
                   </div>
-                  <button className="btn btn-g" style={{ fontSize: 12, padding: "7px 11px" }} onClick={() => { setIsSelectMode(!isSelectMode); setSelectedReqIds([]); }}>
-                    {isSelectMode ? "Cancel" : "Select"}
-                  </button>
+
+                  {!isSelectMode ? (
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      {["all", "pending", "processing", "done", "payment_pending"].map(s => (
+                        <button key={s} className={`pill ${filterStatus === s ? "on" : ""}`} onClick={() => setFilterStatus(s as "all" | RequestStatus)}>
+                          {s === "payment_pending" ? "Payment" : s}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <button className="btn btn-d" style={{ width: "100%", justifyContent: "center", opacity: selectedReqIds.length ? 1 : .4 }} onClick={handleBulkDelete} disabled={!selectedReqIds.length}>
+                      Delete {selectedReqIds.length ? `(${selectedReqIds.length})` : "selected"}
+                    </button>
+                  )}
                 </div>
 
-                {!isSelectMode ? (
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    {["all", "pending", "processing", "done", "payment_pending"].map(s => (
-                      <button key={s} className={`pill ${filterStatus === s ? "on" : ""}`} onClick={() => setFilterStatus(s as "all" | RequestStatus)}>
-                        {s === "payment_pending" ? "Payment" : s}
+                {/* Chat list */}
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                  {isLoadingQueue ? (
+                    <div style={{ padding: 40, textAlign: "center", color: T.textMuted, fontSize: 13 }}>Loading…</div>
+                  ) : !requests.length ? (
+                    <div style={{ padding: 60, textAlign: "center", color: T.textMuted, fontSize: 13 }}>No chats found.</div>
+                  ) : requests.map(req => {
+                    const cfg = STATUS_CFG[req.status] || STATUS_CFG.pending;
+                    const isActive = selectedReq?.id === req.id;
+
+                    // ✨ WhatsApp Logic
+                    const lastMsg = req.request_messages?.[req.request_messages.length - 1];
+                    // ✨ FIX 1: Read from our safe unreadIds array!
+                    const isUnreadActual = (unreadIds.includes(req.id) || req.status === "pending") && !isActive;
+
+                    let previewText = "No messages yet";
+                    if (lastMsg) {
+                      if (lastMsg.message_type === "text") previewText = lastMsg.content || "";
+                      else if (lastMsg.message_type === "form") previewText = "📝 Form Submitted";
+                      else if (lastMsg.message_type === "payment") previewText = "💳 Payment Request";
+                      else if (lastMsg.doc_url) previewText = "📎 Document Attached";
+                    }
+
+                    return (
+                      <div key={req.id} className={`chat-row ${isActive ? "active" : ""}`}
+                        onClick={() => { if (isSelectMode) setSelectedReqIds(p => p.includes(req.id) ? p.filter(i => i !== req.id) : [...p, req.id]); else { setSelectedReq(req); setUnreadIds(prev => prev.filter(id => id !== req.id)); } }}>
+                        {isSelectMode && <input type="checkbox" readOnly checked={selectedReqIds.includes(req.id)} style={{ accentColor: "#ef4444", flexShrink: 0 }} />}
+                        <div style={{ position: "relative", flexShrink: 0 }}>
+                          <Avatar name={req.users?.name} size={42} role="user" isDark={isDark} />
+                          <span className={req.status === "pending" ? "pulse-dot" : ""} style={{ position: "absolute", bottom: 1, right: 1, width: 9, height: 9, borderRadius: "50%", background: cfg.dot, border: `2px solid ${T.sidebarBg}` }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                            <span style={{ fontWeight: 700, fontSize: 14, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{req.users?.name || "Citizen"}</span>
+                            {/* ✨ Time of Last Message */}
+                            <span style={{ fontSize: 11, color: isUnreadActual ? "#10b981" : T.textMuted, fontWeight: isUnreadActual ? 700 : 500, flexShrink: 0, marginLeft: 8 }}>
+                              {lastMsg ? fmtTime(lastMsg.created_at) : fmtTime(req.updated_at)}
+                            </span>                        </div>
+                          <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ color: T.accent, fontWeight: 700 }}>{req.service}</span>
+                            <span style={{ margin: "0 4px", opacity: .4 }}>·</span>{req.title}
+                          </div>
+                          {/* ✨ WhatsApp-Style Last Message Preview */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{
+                              fontSize: 13,
+                              color: isUnreadActual ? T.textPrimary : T.textMuted,
+                              fontWeight: isUnreadActual ? 600 : 400,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              flex: 1,
+                              paddingRight: 10
+                            }}>
+                              {previewText}
+                            </div>
+
+                            {/* ✨ Green Unread Dot */}
+                            {isUnreadActual && (
+                              <div style={{ width: 10, height: 10, background: "#10b981", borderRadius: "50%", flexShrink: 0, boxShadow: "0 0 8px rgba(16, 185, 129, 0.4)" }} />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ padding: "10px 14px", borderTop: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
+                  <button className="btn btn-p" style={{ width: "100%", justifyContent: "center", borderRadius: 9, padding: "10px" }} onClick={() => setShowNewChat(true)}>
+                    <Ico.Plus /> New Chat
+                  </button>
+                </div>
+              </div>
+
+              {/* CHAT PANEL */}
+              {selectedReq ? (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", background: T.chatBg, position: "relative" }}
+                  onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={handleDrop}>
+
+                  {isDragOver && (
+                    <div className="drag-ov">
+                      <div style={{ textAlign: "center", color: T.accent }}>
+                        <div style={{ fontSize: 38, marginBottom: 8 }}>📎</div>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>Drop files to attach</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Chat header */}
+                  <div style={{ background: isDark ? "rgba(6,11,20,0.98)" : T.cardBg, borderBottom: `1px solid ${T.divider}`, padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, boxShadow: isDark ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ position: "relative" }}>
+                        <Avatar name={selectedReq.users?.name} size={40} isDark={isDark} />
+                        <span style={{ position: "absolute", bottom: 1, right: 1, width: 9, height: 9, borderRadius: "50%", background: STATUS_CFG[selectedReq.status]?.dot || "#9ca3af", border: `2px solid ${isDark ? "#060b14" : T.cardBg}` }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>{selectedReq.users?.name || "Citizen"}</div>
+                        <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 1 }}>
+                          {selectedReq.service}{selectedReq.users?.mobile && <><span style={{ margin: "0 5px", opacity: .4 }}>·</span>{selectedReq.users.mobile}</>}
+                          {selectedReq.assignee?.name && <span style={{ marginLeft: 8, color: T.accent, fontWeight: 600 }}>→ {selectedReq.assignee.name}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={{ padding: "4px 11px", borderRadius: 20, background: STATUS_CFG[selectedReq.status]?.bg, border: `1px solid ${STATUS_CFG[selectedReq.status]?.border}`, fontSize: 11, fontWeight: 800, color: STATUS_CFG[selectedReq.status]?.color, letterSpacing: ".05em" }}>
+                        {STATUS_CFG[selectedReq.status]?.label || selectedReq.status}
+                      </div>
+                      {selectedReq.status !== "done" && <button className="btn btn-s" style={{ fontSize: 12 }} onClick={() => setShowMarkDone(true)}><Ico.Check /> Resolve</button>}
+                    </div>
+                  </div>
+
+                  {/* Sub tabs */}
+                  <div style={{ display: "flex", borderBottom: `1px solid ${T.divider}`, background: T.subTabHdrBg, paddingLeft: 10 }}>
+                    {["chat", "docs", "delivery"].map(tb => (
+                      <button key={tb} style={{ padding: "11px 18px", fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", background: "transparent", border: "none", color: sidePanel === tb ? T.subTabActive : T.subTabText, borderBottom: `2px solid ${sidePanel === tb ? T.subTabBorder : "transparent"}`, transition: "all .15s", fontFamily: "'DM Sans',sans-serif" }} onClick={() => setSidePanel(tb as "chat" | "docs" | "delivery")}>
+                        {tb === "chat" ? "💬 Messages" : tb === "docs" ? `📁 Documents (${documents.length})` : "🛵 Delivery"}
                       </button>
                     ))}
                   </div>
-                ) : (
-                  <button className="btn btn-d" style={{ width: "100%", justifyContent: "center", opacity: selectedReqIds.length ? 1 : .4 }} onClick={handleBulkDelete} disabled={!selectedReqIds.length}>
-                    Delete {selectedReqIds.length ? `(${selectedReqIds.length})` : "selected"}
-                  </button>
-                )}
-              </div>
 
-              {/* Chat list */}
-              <div style={{ flex: 1, overflowY: "auto" }}>
-                {isLoadingQueue ? (
-                  <div style={{ padding: 40, textAlign: "center", color: T.textMuted, fontSize: 13 }}>Loading…</div>
-                ) : !requests.length ? (
-                  <div style={{ padding: 60, textAlign: "center", color: T.textMuted, fontSize: 13 }}>No chats found.</div>
-                ) : requests.map(req => {
-                  const cfg = STATUS_CFG[req.status] || STATUS_CFG.pending;
-                  const isActive = selectedReq?.id === req.id;
+                  {/* ── MESSAGES ── */}
+                  {sidePanel === "chat" && (
+                    <>
+                      <div style={{ flex: 1, overflowY: "auto", padding: "22px 6%", display: "flex", flexDirection: "column", gap: 4, backgroundImage: T.chatPattern, backgroundSize: "28px 28px" }}>
+                        {messages.map(msg => {
+                          const isAdmin = msg.sender_role !== "user";
+                          return (
+                            <div key={msg.id} className="msgrow" style={{ display: "flex", flexDirection: "column", alignItems: isAdmin ? "flex-end" : "flex-start", marginBottom: 8 }}>
+                              {!isAdmin && <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 4, marginBottom: 3 }}>{msg.users?.name || "Citizen"}</span>}
+                              {isAdmin && msg.users?.name !== currentUser?.name && <span style={{ fontSize: 11, color: T.accent, marginRight: 4, marginBottom: 3, fontWeight: 600 }}>~ {msg.users?.name}</span>}
 
-                  // ✨ WhatsApp Logic
-                  const lastMsg = req.request_messages?.[req.request_messages.length - 1];
-                  // ✨ FIX 1: Read from our safe unreadIds array!
-                  const isUnreadActual = (unreadIds.includes(req.id) || req.status === "pending") && !isActive;
+                              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexDirection: isAdmin ? "row-reverse" : "row" }}>
+                                <div className={`bubble ${isAdmin ? "b-admin" : "b-user"}`}>
 
-                  let previewText = "No messages yet";
-                  if (lastMsg) {
-                    if (lastMsg.message_type === "text") previewText = lastMsg.content || "";
-                    else if (lastMsg.message_type === "form") previewText = "📝 Form Submitted";
-                    else if (lastMsg.message_type === "payment") previewText = "💳 Payment Request";
-                    else if (lastMsg.doc_url) previewText = "📎 Document Attached";
-                  }
-
-                  return (
-                    <div key={req.id} className={`chat-row ${isActive ? "active" : ""}`}
-                      onClick={() => { if (isSelectMode) setSelectedReqIds(p => p.includes(req.id) ? p.filter(i => i !== req.id) : [...p, req.id]); else { setSelectedReq(req); setUnreadIds(prev => prev.filter(id => id !== req.id)); } }}>
-                      {isSelectMode && <input type="checkbox" readOnly checked={selectedReqIds.includes(req.id)} style={{ accentColor: "#ef4444", flexShrink: 0 }} />}
-                      <div style={{ position: "relative", flexShrink: 0 }}>
-                        <Avatar name={req.users?.name} size={42} role="user" isDark={isDark} />
-                        <span className={req.status === "pending" ? "pulse-dot" : ""} style={{ position: "absolute", bottom: 1, right: 1, width: 9, height: 9, borderRadius: "50%", background: cfg.dot, border: `2px solid ${T.sidebarBg}` }} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                          <span style={{ fontWeight: 700, fontSize: 14, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{req.users?.name || "Citizen"}</span>
-                          {/* ✨ Time of Last Message */}
-                          <span style={{ fontSize: 11, color: isUnreadActual ? "#10b981" : T.textMuted, fontWeight: isUnreadActual ? 700 : 500, flexShrink: 0, marginLeft: 8 }}>
-                            {lastMsg ? fmtTime(lastMsg.created_at) : fmtTime(req.updated_at)}
-                          </span>                        </div>
-                        <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          <span style={{ color: T.accent, fontWeight: 700 }}>{req.service}</span>
-                          <span style={{ margin: "0 4px", opacity: .4 }}>·</span>{req.title}
-                        </div>
-                        {/* ✨ WhatsApp-Style Last Message Preview */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{
-                            fontSize: 13,
-                            color: isUnreadActual ? T.textPrimary : T.textMuted,
-                            fontWeight: isUnreadActual ? 600 : 400,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            flex: 1,
-                            paddingRight: 10
-                          }}>
-                            {previewText}
-                          </div>
-
-                          {/* ✨ Green Unread Dot */}
-                          {isUnreadActual && (
-                            <div style={{ width: 10, height: 10, background: "#10b981", borderRadius: "50%", flexShrink: 0, boxShadow: "0 0 8px rgba(16, 185, 129, 0.4)" }} />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div style={{ padding: "10px 14px", borderTop: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
-                <button className="btn btn-p" style={{ width: "100%", justifyContent: "center", borderRadius: 9, padding: "10px" }} onClick={() => setShowNewChat(true)}>
-                  <Ico.Plus /> New Chat
-                </button>
-              </div>
-            </div>
-
-            {/* CHAT PANEL */}
-            {selectedReq ? (
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", background: T.chatBg, position: "relative" }}
-                onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={handleDrop}>
-
-                {isDragOver && (
-                  <div className="drag-ov">
-                    <div style={{ textAlign: "center", color: T.accent }}>
-                      <div style={{ fontSize: 38, marginBottom: 8 }}>📎</div>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>Drop files to attach</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Chat header */}
-                <div style={{ background: isDark ? "rgba(6,11,20,0.98)" : T.cardBg, borderBottom: `1px solid ${T.divider}`, padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, boxShadow: isDark ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ position: "relative" }}>
-                      <Avatar name={selectedReq.users?.name} size={40} isDark={isDark} />
-                      <span style={{ position: "absolute", bottom: 1, right: 1, width: 9, height: 9, borderRadius: "50%", background: STATUS_CFG[selectedReq.status]?.dot || "#9ca3af", border: `2px solid ${isDark ? "#060b14" : T.cardBg}` }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>{selectedReq.users?.name || "Citizen"}</div>
-                      <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 1 }}>
-                        {selectedReq.service}{selectedReq.users?.mobile && <><span style={{ margin: "0 5px", opacity: .4 }}>·</span>{selectedReq.users.mobile}</>}
-                        {selectedReq.assignee?.name && <span style={{ marginLeft: 8, color: T.accent, fontWeight: 600 }}>→ {selectedReq.assignee.name}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <div style={{ padding: "4px 11px", borderRadius: 20, background: STATUS_CFG[selectedReq.status]?.bg, border: `1px solid ${STATUS_CFG[selectedReq.status]?.border}`, fontSize: 11, fontWeight: 800, color: STATUS_CFG[selectedReq.status]?.color, letterSpacing: ".05em" }}>
-                      {STATUS_CFG[selectedReq.status]?.label || selectedReq.status}
-                    </div>
-                    {isMainAdmin && <button className="btn btn-g" style={{ fontSize: 12 }} onClick={() => setShowAssign(true)}><Ico.Team /> Assign</button>}
-                    {selectedReq.status !== "done" && <button className="btn btn-s" style={{ fontSize: 12 }} onClick={() => setShowMarkDone(true)}><Ico.Check /> Resolve</button>}
-                  </div>
-                </div>
-
-                {/* Sub tabs */}
-                <div style={{ display: "flex", borderBottom: `1px solid ${T.divider}`, background: T.subTabHdrBg, paddingLeft: 10 }}>
-                  {["chat", "docs", "delivery"].map(tb => (
-                    <button key={tb} style={{ padding: "11px 18px", fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", cursor: "pointer", background: "transparent", border: "none", color: sidePanel === tb ? T.subTabActive : T.subTabText, borderBottom: `2px solid ${sidePanel === tb ? T.subTabBorder : "transparent"}`, transition: "all .15s", fontFamily: "'DM Sans',sans-serif" }} onClick={() => setSidePanel(tb as "chat" | "docs" | "delivery")}>
-                      {tb === "chat" ? "💬 Messages" : tb === "docs" ? `📁 Documents (${documents.length})` : "🛵 Delivery"}
-                    </button>
-                  ))}
-                </div>
-
-                {/* ── MESSAGES ── */}
-                {sidePanel === "chat" && (
-                  <>
-                    <div style={{ flex: 1, overflowY: "auto", padding: "22px 6%", display: "flex", flexDirection: "column", gap: 4, backgroundImage: T.chatPattern, backgroundSize: "28px 28px" }}>
-                      {messages.map(msg => {
-                        const isAdmin = msg.sender_role !== "user";
-                        return (
-                          <div key={msg.id} className="msgrow" style={{ display: "flex", flexDirection: "column", alignItems: isAdmin ? "flex-end" : "flex-start", marginBottom: 8 }}>
-                            {!isAdmin && <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 4, marginBottom: 3 }}>{msg.users?.name || "Citizen"}</span>}
-                            {isAdmin && msg.users?.name !== currentUser?.name && <span style={{ fontSize: 11, color: T.accent, marginRight: 4, marginBottom: 3, fontWeight: 600 }}>~ {msg.users?.name}</span>}
-
-                            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexDirection: isAdmin ? "row-reverse" : "row" }}>
-                              <div className={`bubble ${isAdmin ? "b-admin" : "b-user"}`}>
-
-                                {/* Reply preview */}
-                                {msg.reply_to_msg && (
-                                  <div style={{ background: isDark ? "rgba(0,0,0,0.2)" : T.accentLight, borderLeft: `3px solid ${T.accent}`, borderRadius: "0 6px 6px 0", padding: "6px 10px", marginBottom: 8 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 2 }}>{msg.reply_to_msg.users?.name || "User"}</div>
-                                    <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.reply_to_msg.content || (msg.reply_to_msg.message_type === "doc" ? "📄 Document" : "💳 Payment")}</div>
-                                  </div>
-                                )}
-
-                                {/* Payment */}
-                                {msg.message_type === "payment" && (
-                                  <div style={{ width: "100%", boxSizing: "border-box", background: msg.payment_status === "paid" ? T.payPaidGrad : T.payPendingGrad, borderRadius: 8, padding: "14px", color: "#fff", position: "relative", overflow: "hidden", marginTop: 4 }}>
-                                    <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
-
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                                      <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                                        {msg.payment_status === "paid" ? <Ico.Check /> : <Ico.Pay />}
-                                      </div>
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: 10, opacity: 0.9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                                          {msg.payment_status === "paid" ? "Payment Received" : "Payment Requested"}
-                                        </div>
-                                        <div className="mono" style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.1, marginTop: 2 }}>
-                                          {fmtCurrency(msg.payment_amount || 0)}
-                                        </div>
-                                      </div>
+                                  {/* Reply preview */}
+                                  {msg.reply_to_msg && (
+                                    <div style={{ background: isDark ? "rgba(0,0,0,0.2)" : T.accentLight, borderLeft: `3px solid ${T.accent}`, borderRadius: "0 6px 6px 0", padding: "6px 10px", marginBottom: 8 }}>
+                                      <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 2 }}>{msg.reply_to_msg.users?.name || "User"}</div>
+                                      <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.reply_to_msg.content || (msg.reply_to_msg.message_type === "doc" ? "📄 Document" : "💳 Payment")}</div>
                                     </div>
+                                  )}
 
-                                    {msg.payment_status === "paid" ? (
-                                      <div style={{ fontSize: 11, background: "rgba(255,255,255,0.18)", padding: "6px 10px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 700 }}>✅ Verified · Razorpay</div>
-                                    ) : (
-                                      <div style={{ fontSize: 12, opacity: .85 }}>Awaiting payment from user</div>
-                                    )}
-                                  </div>
-                                )}
+                                  {/* Payment */}
+                                  {msg.message_type === "payment" && (
+                                    <div style={{ width: "100%", boxSizing: "border-box", background: msg.payment_status === "paid" ? T.payPaidGrad : T.payPendingGrad, borderRadius: 8, padding: "14px", color: "#fff", position: "relative", overflow: "hidden", marginTop: 4 }}>
+                                      <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
 
-                                {/* ✨ ADMIN FORM BUBBLE WITH 1-CLICK COPY */}
-                                {msg.message_type === "form" && (
-                                  <div style={{ minWidth: 280, background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc", border: `1px solid ${T.accentBorder}`, borderRadius: 11, padding: "16px", margin: "4px 0", width: "100%", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
-                                    <div style={{ display: "flex", gap: 10, alignItems: "center", borderBottom: `1px dashed ${T.divider}`, paddingBottom: 12, marginBottom: 16 }}>
-                                      <div style={{ background: T.accentLight, padding: "8px 10px", borderRadius: 8, fontSize: 18 }}>📝</div>
-                                      <div style={{ flex: 1 }}>
-                                        {/* ✨ Now it pulls the title from the joined forms table */}
-                                        <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>{(msg as any).forms?.title || (msg as any).form_title || "User Form Submission"}</div>                                        <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ready to Process</div>
-                                      </div>
-                                    </div>
-
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                      {(msg as any).form_data && Object.entries((msg as any).form_data).map(([key, val]) => (
-                                        <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                                            <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>{key}</div>
-
-                                            {/* ✨ 1-Click Copy Button with Toast Effect */}
-                                            <button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(String(val));
-                                                const uniqueId = msg.id + key;
-                                                setCopiedId(uniqueId);
-                                                setTimeout(() => setCopiedId(null), 2000); // Resets after 2s
-                                              }}
-                                              style={{
-                                                background: copiedId === (msg.id + key) ? T.btnSuccessBg : T.accentLight,
-                                                border: `1px solid ${copiedId === (msg.id + key) ? "transparent" : T.accentBorder}`,
-                                                color: copiedId === (msg.id + key) ? "#fff" : T.accent,
-                                                fontSize: 10, fontWeight: 800, cursor: "pointer", padding: "3px 8px", borderRadius: 4, transition: "all 0.2s"
-                                              }}
-                                              onMouseEnter={e => { if (copiedId !== (msg.id + key)) e.currentTarget.style.background = T.accentBorder }}
-                                              onMouseLeave={e => { if (copiedId !== (msg.id + key)) e.currentTarget.style.background = T.accentLight }}
-                                            >
-                                              {copiedId === (msg.id + key) ? "✅ Copied" : "📋 Copy"}
-                                            </button>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                                        <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                                          {msg.payment_status === "paid" ? <Ico.Check /> : <Ico.Pay />}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ fontSize: 10, opacity: 0.9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                            {msg.payment_status === "paid" ? "Payment Received" : "Payment Requested"}
                                           </div>
-                                          <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600, background: isDark ? "rgba(0,0,0,0.2)" : "#fff", padding: "8px 12px", borderRadius: 6, border: `1px solid ${T.inputBorder}`, userSelect: "all" }}>
-                                            {String(val)}
+                                          <div className="mono" style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.1, marginTop: 2 }}>
+                                            {fmtCurrency(msg.payment_amount || 0)}
                                           </div>
                                         </div>
-                                      ))}
+                                      </div>
+
+                                      {msg.payment_status === "paid" ? (
+                                        <div style={{ fontSize: 11, background: "rgba(255,255,255,0.18)", padding: "6px 10px", borderRadius: 6, display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 700 }}>✅ Verified · Razorpay</div>
+                                      ) : (
+                                        <div style={{ fontSize: 12, opacity: .85 }}>Awaiting payment from user</div>
+                                      )}
                                     </div>
+                                  )}
 
-                                    {/* Document Attachment */}
-                                    {msg.doc_url && (
-                                      <div onClick={() => dlFile(msg.doc_url!, msg.doc_name || "document")} style={{ marginTop: 16, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.borderColor = T.accent} onMouseLeave={e => e.currentTarget.style.borderColor = T.inputBorder}>
-                                        <span style={{ fontSize: 18 }}>📎</span>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.doc_name}</div>
-                                          <div style={{ fontSize: 11, color: T.textMuted }}>{msg.doc_size}</div>
+                                  {/* ✨ ADMIN FORM BUBBLE WITH 1-CLICK COPY */}
+                                  {msg.message_type === "form" && (
+                                    <div style={{ minWidth: 280, background: isDark ? "rgba(255,255,255,0.05)" : "#f8fafc", border: `1px solid ${T.accentBorder}`, borderRadius: 11, padding: "16px", margin: "4px 0", width: "100%", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                                      <div style={{ display: "flex", gap: 10, alignItems: "center", borderBottom: `1px dashed ${T.divider}`, paddingBottom: 12, marginBottom: 16 }}>
+                                        <div style={{ background: T.accentLight, padding: "8px 10px", borderRadius: 8, fontSize: 18 }}>📝</div>
+                                        <div style={{ flex: 1 }}>
+                                          {/* ✨ Now it pulls the title from the joined forms table */}
+                                          <div style={{ fontSize: 14, fontWeight: 800, color: T.accent }}>{(msg as any).forms?.title || (msg as any).form_title || "User Form Submission"}</div>                                        <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ready to Process</div>
                                         </div>
-                                        <span style={{ fontSize: 18, color: T.textMuted }}>⬇</span>
                                       </div>
-                                    )}
-                                  </div>
-                                )}
 
-                                {/* Document */}
-                                {msg.message_type === "doc" && (
-                                  <div>
-                                    {isImg(msg.doc_name) ? (
-                                      <div style={{ position: "relative", display: "inline-block", maxWidth: 260 }}>
-                                        <img src={msg.doc_url || ""} alt={msg.doc_name || "img"} style={{ width: "100%", maxHeight: 340, borderRadius: 8, display: "block", cursor: "pointer", objectFit: "cover", objectPosition: "top center", border: `1px solid ${T.divider}` }} onClick={() => setLightbox({ src: msg.doc_url || "", name: msg.doc_name || "image" })} />
-                                        <button onClick={() => dlFile(msg.doc_url || "", msg.doc_name || "file")} style={{ position: "absolute", bottom: 7, right: 7, background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", cursor: "pointer", padding: 7, borderRadius: 6, display: "flex" }}><Ico.Download /></button>
+                                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                        {(msg as any).form_data && Object.entries((msg as any).form_data).map(([key, val]) => (
+                                          <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                                              <div style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>{key}</div>
+
+                                              {/* ✨ 1-Click Copy Button with Toast Effect */}
+                                              <button
+                                                onClick={() => {
+                                                  navigator.clipboard.writeText(String(val));
+                                                  const uniqueId = msg.id + key;
+                                                  setCopiedId(uniqueId);
+                                                  setTimeout(() => setCopiedId(null), 2000); // Resets after 2s
+                                                }}
+                                                style={{
+                                                  background: copiedId === (msg.id + key) ? T.btnSuccessBg : T.accentLight,
+                                                  border: `1px solid ${copiedId === (msg.id + key) ? "transparent" : T.accentBorder}`,
+                                                  color: copiedId === (msg.id + key) ? "#fff" : T.accent,
+                                                  fontSize: 10, fontWeight: 800, cursor: "pointer", padding: "3px 8px", borderRadius: 4, transition: "all 0.2s"
+                                                }}
+                                                onMouseEnter={e => { if (copiedId !== (msg.id + key)) e.currentTarget.style.background = T.accentBorder }}
+                                                onMouseLeave={e => { if (copiedId !== (msg.id + key)) e.currentTarget.style.background = T.accentLight }}
+                                              >
+                                                {copiedId === (msg.id + key) ? "✅ Copied" : "📋 Copy"}
+                                              </button>
+                                            </div>
+                                            <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600, background: isDark ? "rgba(0,0,0,0.2)" : "#fff", padding: "8px 12px", borderRadius: 6, border: `1px solid ${T.inputBorder}`, userSelect: "all" }}>
+                                              {String(val)}
+                                            </div>
+                                          </div>
+                                        ))}
                                       </div>
-                                    ) : (
-                                      <div className="doc-bub">
-                                        <div style={{ width: 36, height: 36, borderRadius: 8, background: T.docIconBg, border: `1px solid ${T.docIconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: T.docIconColor }}><Ico.Doc /></div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                          <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: T.textPrimary }}>{msg.doc_name}</div>
-                                          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{msg.doc_size}</div>
+
+                                      {/* Document Attachment */}
+                                      {msg.doc_url && (
+                                        <div onClick={() => dlFile(msg.doc_url!, msg.doc_name || "document")} style={{ marginTop: 16, background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => e.currentTarget.style.borderColor = T.accent} onMouseLeave={e => e.currentTarget.style.borderColor = T.inputBorder}>
+                                          <span style={{ fontSize: 18 }}>📎</span>
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.doc_name}</div>
+                                            <div style={{ fontSize: 11, color: T.textMuted }}>{msg.doc_size}</div>
+                                          </div>
+                                          <span style={{ fontSize: 18, color: T.textMuted }}>⬇</span>
                                         </div>
-                                        <button onClick={() => dlFile(msg.doc_url || "", msg.doc_name || "file")} style={{ background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.textPrimary, cursor: "pointer", padding: 8, borderRadius: 6, display: "flex", flexShrink: 0 }}><Ico.Download /></button>
-                                      </div>
-                                    )}
-                                    {msg.content && <div style={{ fontSize: 14, marginTop: 6, lineHeight: 1.5, color: isAdmin ? T.bubbleAdminText : T.bubbleUserText }}>{msg.content}</div>}
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Document */}
+                                  {msg.message_type === "doc" && (
+                                    <div>
+                                      {isImg(msg.doc_name) ? (
+                                        <div style={{ position: "relative", display: "inline-block", maxWidth: 260 }}>
+                                          <img src={msg.doc_url || ""} alt={msg.doc_name || "img"} style={{ width: "100%", maxHeight: 340, borderRadius: 8, display: "block", cursor: "pointer", objectFit: "cover", objectPosition: "top center", border: `1px solid ${T.divider}` }} onClick={() => setLightbox({ src: msg.doc_url || "", name: msg.doc_name || "image" })} />
+                                          <button onClick={() => dlFile(msg.doc_url || "", msg.doc_name || "file")} style={{ position: "absolute", bottom: 7, right: 7, background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", cursor: "pointer", padding: 7, borderRadius: 6, display: "flex" }}><Ico.Download /></button>
+                                        </div>
+                                      ) : (
+                                        <div className="doc-bub">
+                                          <div style={{ width: 36, height: 36, borderRadius: 8, background: T.docIconBg, border: `1px solid ${T.docIconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: T.docIconColor }}><Ico.Doc /></div>
+                                          <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: T.textPrimary }}>{msg.doc_name}</div>
+                                            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{msg.doc_size}</div>
+                                          </div>
+                                          <button onClick={() => dlFile(msg.doc_url || "", msg.doc_name || "file")} style={{ background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.textPrimary, cursor: "pointer", padding: 8, borderRadius: 6, display: "flex", flexShrink: 0 }}><Ico.Download /></button>
+                                        </div>
+                                      )}
+                                      {msg.content && <div style={{ fontSize: 14, marginTop: 6, lineHeight: 1.5, color: isAdmin ? T.bubbleAdminText : T.bubbleUserText }}>{msg.content}</div>}
+                                    </div>
+                                  )}
+
+                                  {/* Text */}
+                                  {msg.message_type === "text" && (
+                                    <div style={{ fontSize: 14, lineHeight: 1.6, color: isAdmin ? T.bubbleAdminText : T.bubbleUserText, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg.content}</div>
+                                  )}
+
+                                  {/* Time + tick */}
+                                  <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 5, marginTop: 5 }}>
+                                    <span style={{ fontSize: 10, color: T.bubbleMeta }}>{fmtTime(msg.created_at)}</span>
+                                    {isAdmin && <span style={{ color: "#2563eb" }}><Ico.DblChk /></span>}
                                   </div>
-                                )}
-
-                                {/* Text */}
-                                {msg.message_type === "text" && (
-                                  <div style={{ fontSize: 14, lineHeight: 1.6, color: isAdmin ? T.bubbleAdminText : T.bubbleUserText, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{msg.content}</div>
-                                )}
-
-                                {/* Time + tick */}
-                                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 5, marginTop: 5 }}>
-                                  <span style={{ fontSize: 10, color: T.bubbleMeta }}>{fmtTime(msg.created_at)}</span>
-                                  {isAdmin && <span style={{ color: "#2563eb" }}><Ico.DblChk /></span>}
                                 </div>
+
+                                {/* Reply button */}
+                                <button className="rep-btn btn btn-g" style={{ padding: 6, borderRadius: 7, flexShrink: 0 }} onClick={() => setReplyingTo(msg)} title="Reply"><Ico.Reply /></button>
                               </div>
-
-                              {/* Reply button */}
-                              <button className="rep-btn btn btn-g" style={{ padding: 6, borderRadius: 7, flexShrink: 0 }} onClick={() => setReplyingTo(msg)} title="Reply"><Ico.Reply /></button>
                             </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={msgEndRef} />
-                    </div>
+                          );
+                        })}
+                        <div ref={msgEndRef} />
+                      </div>
 
-                    {/* ── INPUT BAR ── */}
-                    <div style={{ background: isDark ? "rgba(6,11,20,0.98)" : T.cardBg, borderTop: `1px solid ${T.divider}`, padding: "10px 18px", flexShrink: 0, boxShadow: isDark ? "none" : "0 -1px 6px rgba(0,0,0,0.05)" }}>
+                      {/* ── INPUT BAR ── */}
+                      <div style={{ background: isDark ? "rgba(6,11,20,0.98)" : T.cardBg, borderTop: `1px solid ${T.divider}`, padding: "10px 18px", flexShrink: 0, boxShadow: isDark ? "none" : "0 -1px 6px rgba(0,0,0,0.05)" }}>
 
-                      {/* Reply preview strip */}
-                      {replyingTo && (
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: T.accentLight, borderLeft: `3px solid ${T.accent}`, padding: "7px 11px", borderRadius: "7px 7px 0 0", marginBottom: 1, gap: 10 }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 2 }}>↩ {replyingTo.users?.name || "User"}</div>
-                            <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{replyingTo.content || (replyingTo.message_type === "doc" ? "📄 Document" : "💳 Payment")}</div>
+                        {/* Reply preview strip */}
+                        {replyingTo && (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: T.accentLight, borderLeft: `3px solid ${T.accent}`, padding: "7px 11px", borderRadius: "7px 7px 0 0", marginBottom: 1, gap: 10 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 2 }}>↩ {replyingTo.users?.name || "User"}</div>
+                              <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{replyingTo.content || (replyingTo.message_type === "doc" ? "📄 Document" : "💳 Payment")}</div>
+                            </div>
+                            <button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 3, display: "flex", flexShrink: 0 }}><Ico.X /></button>
                           </div>
-                          <button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 3, display: "flex", flexShrink: 0 }}><Ico.X /></button>
+                        )}
+
+                        {/* Pending files */}
+                        {pendingFiles.length > 0 && (
+                          <div style={{ display: "flex", gap: 7, padding: "7px 0", overflowX: "auto", marginBottom: 4 }}>
+                            {pendingFiles.map((f, i) => (
+                              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: T.inputBg, padding: "5px 9px", borderRadius: 6, border: `1px solid ${T.inputBorder}`, flexShrink: 0 }}>
+                                <span style={{ color: T.textMuted }}><Ico.Doc /></span>
+                                <span style={{ fontSize: 12, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: T.textPrimary }}>{f.name}</span>
+                                <button onClick={() => setPendingFiles(p => p.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: T.btnDangerText, cursor: "pointer", padding: 0, display: "flex" }}><Ico.X /></button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Payment amount bar */}
+                        {showPayBar && (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.accentLight, border: `1px solid ${T.accentBorder}`, padding: "9px 13px", borderRadius: "7px 7px 0 0", marginBottom: 1 }}>
+                            <span style={{ color: T.accent, fontWeight: 800, fontSize: 17 }}>₹</span>
+                            <input value={replyAmount} onChange={e => setReplyAmount(e.target.value.replace(/\D/g, ""))} placeholder="Enter amount…" className="inp" style={{ width: 150, fontWeight: 700, fontSize: 15, background: "transparent", border: "none", padding: "3px 0", color: T.inputText }} />
+                            <button className="btn btn-p" style={{ fontSize: 12 }} onClick={() => sendReply("payment")}>Send Payment Link</button>
+                            <button className="btn btn-g" style={{ padding: "6px 9px" }} onClick={() => setShowPayBar(false)}><Ico.X /></button>
+                          </div>
+                        )}
+
+                        {/* Main input row */}
+                        <div style={{ display: "flex", gap: 9, alignItems: "center", background: T.inputBg, borderRadius: (replyingTo || pendingFiles.length || showPayBar) ? "0 0 11px 11px" : "11px", border: `1px solid ${T.inputBorder}`, padding: "7px 13px" }}>
+                          <input type="file" multiple ref={fileInputRef} style={{ display: "none" }} onChange={handleFileSelect} />
+                          <button onClick={() => fileInputRef.current?.click()} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 4, display: "flex", transition: "color .15s" }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.accent; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T.textMuted; }}><Ico.Attach /></button>
+                          <button onClick={() => setShowPayBar(!showPayBar)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 4, display: "flex", transition: "color .15s" }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.accent; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T.textMuted; }}><Ico.Pay /></button>
+                          <input value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply("text"); } }} placeholder="Type a message…" style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 14, color: T.inputText, padding: "5px 0", fontFamily: "'DM Sans',sans-serif" }} />
+                          <button onClick={() => sendReply("text")} disabled={isSending || (!replyText.trim() && !pendingFiles.length)}
+                            style={{ width: 34, height: 34, borderRadius: "50%", background: (!replyText.trim() && !pendingFiles.length) ? T.inputBg : T.btnPrimary, border: `1px solid ${(!replyText.trim() && !pendingFiles.length) ? T.inputBorder : "transparent"}`, color: (!replyText.trim() && !pendingFiles.length) ? T.textMuted : T.btnPrimaryText, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all .15s" }}>
+                            {isSending ? <span style={{ width: 13, height: 13, border: `2px solid ${T.textMuted}`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin .7s linear infinite", display: "block" }} /> : <Ico.Send />}
+                          </button>
                         </div>
-                      )}
+                      </div>
+                    </>
+                  )}
 
-                      {/* Pending files */}
-                      {pendingFiles.length > 0 && (
-                        <div style={{ display: "flex", gap: 7, padding: "7px 0", overflowX: "auto", marginBottom: 4 }}>
-                          {pendingFiles.map((f, i) => (
-                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: T.inputBg, padding: "5px 9px", borderRadius: 6, border: `1px solid ${T.inputBorder}`, flexShrink: 0 }}>
-                              <span style={{ color: T.textMuted }}><Ico.Doc /></span>
-                              <span style={{ fontSize: 12, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: T.textPrimary }}>{f.name}</span>
-                              <button onClick={() => setPendingFiles(p => p.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: T.btnDangerText, cursor: "pointer", padding: 0, display: "flex" }}><Ico.X /></button>
+                  {/* ── DOCS PANEL ── */}
+                  {sidePanel === "docs" && (
+                    <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+                      {!documents.length ? (
+                        <div style={{ padding: 60, textAlign: "center", color: T.textMuted, fontSize: 13 }}>No documents uploaded.</div>
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 14 }}>
+                          {documents.map(doc => (
+                            <div key={doc.id} className="card" style={{ padding: "16px", display: "flex", alignItems: "center", gap: 13 }}>
+                              <div style={{ width: 42, height: 42, borderRadius: 9, background: T.docIconBg, border: `1px solid ${T.docIconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: T.docIconColor }}><Ico.Doc /></div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3, color: T.textPrimary }}>{doc.file_name}</div>
+                                <div style={{ fontSize: 11, color: T.textMuted }}>{doc.file_size} · {fmtDate(doc.created_at)}</div>
+                              </div>
+                              <button onClick={() => dlFile(doc.file_url, doc.file_name)} style={{ background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.textPrimary, cursor: "pointer", padding: 9, borderRadius: 7, display: "flex" }}><Ico.Download /></button>
                             </div>
                           ))}
                         </div>
                       )}
-
-                      {/* Payment amount bar */}
-                      {showPayBar && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", background: T.accentLight, border: `1px solid ${T.accentBorder}`, padding: "9px 13px", borderRadius: "7px 7px 0 0", marginBottom: 1 }}>
-                          <span style={{ color: T.accent, fontWeight: 800, fontSize: 17 }}>₹</span>
-                          <input value={replyAmount} onChange={e => setReplyAmount(e.target.value.replace(/\D/g, ""))} placeholder="Enter amount…" className="inp" style={{ width: 150, fontWeight: 700, fontSize: 15, background: "transparent", border: "none", padding: "3px 0", color: T.inputText }} />
-                          <button className="btn btn-p" style={{ fontSize: 12 }} onClick={() => sendReply("payment")}>Send Payment Link</button>
-                          <button className="btn btn-g" style={{ padding: "6px 9px" }} onClick={() => setShowPayBar(false)}><Ico.X /></button>
-                        </div>
-                      )}
-
-                      {/* Main input row */}
-                      <div style={{ display: "flex", gap: 9, alignItems: "center", background: T.inputBg, borderRadius: (replyingTo || pendingFiles.length || showPayBar) ? "0 0 11px 11px" : "11px", border: `1px solid ${T.inputBorder}`, padding: "7px 13px" }}>
-                        <input type="file" multiple ref={fileInputRef} style={{ display: "none" }} onChange={handleFileSelect} />
-                        <button onClick={() => fileInputRef.current?.click()} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 4, display: "flex", transition: "color .15s" }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.accent; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T.textMuted; }}><Ico.Attach /></button>
-                        <button onClick={() => setShowPayBar(!showPayBar)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", padding: 4, display: "flex", transition: "color .15s" }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = T.accent; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T.textMuted; }}><Ico.Pay /></button>
-                        <input value={replyText} onChange={e => setReplyText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply("text"); } }} placeholder="Type a message…" style={{ flex: 1, background: "transparent", border: "none", outline: "none", fontSize: 14, color: T.inputText, padding: "5px 0", fontFamily: "'DM Sans',sans-serif" }} />
-                        <button onClick={() => sendReply("text")} disabled={isSending || (!replyText.trim() && !pendingFiles.length)}
-                          style={{ width: 34, height: 34, borderRadius: "50%", background: (!replyText.trim() && !pendingFiles.length) ? T.inputBg : T.btnPrimary, border: `1px solid ${(!replyText.trim() && !pendingFiles.length) ? T.inputBorder : "transparent"}`, color: (!replyText.trim() && !pendingFiles.length) ? T.textMuted : T.btnPrimaryText, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all .15s" }}>
-                          {isSending ? <span style={{ width: 13, height: 13, border: `2px solid ${T.textMuted}`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin .7s linear infinite", display: "block" }} /> : <Ico.Send />}
-                        </button>
-                      </div>
                     </div>
-                  </>
-                )}
+                  )}
 
-                {/* ── DOCS PANEL ── */}
-                {sidePanel === "docs" && (
-                  <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-                    {!documents.length ? (
-                      <div style={{ padding: 60, textAlign: "center", color: T.textMuted, fontSize: 13 }}>No documents uploaded.</div>
-                    ) : (
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 14 }}>
-                        {documents.map(doc => (
-                          <div key={doc.id} className="card" style={{ padding: "16px", display: "flex", alignItems: "center", gap: 13 }}>
-                            <div style={{ width: 42, height: 42, borderRadius: 9, background: T.docIconBg, border: `1px solid ${T.docIconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: T.docIconColor }}><Ico.Doc /></div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3, color: T.textPrimary }}>{doc.file_name}</div>
-                              <div style={{ fontSize: 11, color: T.textMuted }}>{doc.file_size} · {fmtDate(doc.created_at)}</div>
+                  {/* ── ✨ NEW: DELIVERY TAB ── */}
+                  {sidePanel === "delivery" && (
+                    <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", justifyContent: "center" }}>
+                      <div style={{ width: "100%", maxWidth: 500, background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 16, overflow: "hidden", boxShadow: T.cardShadow }}>
+                        <div style={{ background: T.sectionGrad, padding: "16px 20px", color: T.sectionGradText, fontWeight: 700, fontSize: 16, display: "flex", gap: 10, alignItems: "center" }}>
+                          <span>📦</span> Delivery Management
+                        </div>
+
+                        <div style={{ padding: 20 }}>
+                          {selectedReq.delivery_type !== "delivery" ? (
+                            <div style={{ textAlign: "center", padding: "30px 0", color: T.textMuted }}>
+                              <div style={{ fontSize: 40, marginBottom: 10 }}>🏪</div>
+                              <div style={{ fontWeight: 600, fontSize: 15, color: T.textPrimary }}>Store Pickup Request</div>
+                              <p style={{ fontSize: 13, marginTop: 4 }}>This citizen will collect their documents at the CSC.</p>
                             </div>
-                            <button onClick={() => dlFile(doc.file_url, doc.file_name)} style={{ background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.textPrimary, cursor: "pointer", padding: 9, borderRadius: 7, display: "flex" }}><Ico.Download /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                {/* ── ✨ NEW: DELIVERY TAB ── */}
-                {sidePanel === "delivery" && (
-                  <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", justifyContent: "center" }}>
-                    <div style={{ width: "100%", maxWidth: 500, background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 16, overflow: "hidden", boxShadow: T.cardShadow }}>
-                      <div style={{ background: T.sectionGrad, padding: "16px 20px", color: T.sectionGradText, fontWeight: 700, fontSize: 16, display: "flex", gap: 10, alignItems: "center" }}>
-                        <span>📦</span> Delivery Management
-                      </div>
+                              {/* Destination */}
+                              <div style={{ background: T.inputBg, border: `1px solid ${T.inputBorder}`, padding: 14, borderRadius: 10 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Destination</div>
+                                <div style={{ fontWeight: 700, color: T.textPrimary, fontSize: 15, marginBottom: 2 }}>{selectedReq.address?.label || "Home"}</div>
+                                <div style={{ color: T.textSecondary, fontSize: 14 }}>{selectedReq.address?.full_address}</div>
+                                <div style={{ color: T.textSecondary, fontSize: 13, marginTop: 4, fontWeight: 600 }}>PIN: {selectedReq.address?.pincode}</div>
+                              </div>
 
-                      <div style={{ padding: 20 }}>
-                        {selectedReq.delivery_type !== "delivery" ? (
-                          <div style={{ textAlign: "center", padding: "30px 0", color: T.textMuted }}>
-                            <div style={{ fontSize: 40, marginBottom: 10 }}>🏪</div>
-                            <div style={{ fontWeight: 600, fontSize: 15, color: T.textPrimary }}>Store Pickup Request</div>
-                            <p style={{ fontSize: 13, marginTop: 4 }}>This citizen will collect their documents at the CSC.</p>
-                          </div>
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                              {/* Urgency */}
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.divider}`, paddingBottom: 16 }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Urgency Level</span>
+                                <span style={{
+                                  padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: "uppercase",
+                                  background: selectedReq.urgency === 'instant' ? T.docIconBg : T.accentLight,
+                                  color: selectedReq.urgency === 'instant' ? T.docIconColor : T.accent
+                                }}>
+                                  {selectedReq.urgency?.replace("_", " ")}
+                                </span>
+                              </div>
 
-                            {/* Destination */}
-                            <div style={{ background: T.inputBg, border: `1px solid ${T.inputBorder}`, padding: 14, borderRadius: 10 }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Destination</div>
-                              <div style={{ fontWeight: 700, color: T.textPrimary, fontSize: 15, marginBottom: 2 }}>{selectedReq.address?.label || "Home"}</div>
-                              <div style={{ color: T.textSecondary, fontSize: 14 }}>{selectedReq.address?.full_address}</div>
-                              <div style={{ color: T.textSecondary, fontSize: 13, marginTop: 4, fontWeight: 600 }}>PIN: {selectedReq.address?.pincode}</div>
-                            </div>
-
-                            {/* Urgency */}
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.divider}`, paddingBottom: 16 }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Urgency Level</span>
-                              <span style={{
-                                padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, textTransform: "uppercase",
-                                background: selectedReq.urgency === 'instant' ? T.docIconBg : T.accentLight,
-                                color: selectedReq.urgency === 'instant' ? T.docIconColor : T.accent
-                              }}>
-                                {selectedReq.urgency?.replace("_", " ")}
-                              </span>
-                            </div>
-
-                            {/* ✨ NEW: Assignment Section */}
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.divider}`, paddingBottom: 16 }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Assigned Agent</span>
-                              {selectedReq.delivery_boy_id ? (
-                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                  <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>Assigned ✅</span>
-                                  <button onClick={() => setShowDeliverySearch(true)} className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }}>Re-assign</button>
-                                </div>
-                              ) : (
-                                <button onClick={() => { setUserSearchQ(""); setShowDeliverySearch(true); }} className="btn btn-p" style={{ padding: "6px 12px", fontSize: 12 }}>
-                                  Assign Agent
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Delivery Actions (Hide if no agent assigned) */}
-                            {selectedReq.delivery_boy_id && (
-                              <div style={{ marginTop: 10 }}>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, marginBottom: 10, textTransform: "uppercase" }}>Actions</div>
-
-                                {selectedReq.delivery_status === 'pending' && (
-                                  <button onClick={() => handleDeliveryUpdate('out_for_delivery')} className="btn btn-p" style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: 15 }}>
-                                    🛵 Start Live Delivery
+                              {/* ✨ NEW: Assignment Section */}
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.divider}`, paddingBottom: 16 }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Assigned Agent</span>
+                                {selectedReq.delivery_boy_id ? (
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: T.accent }}>Assigned ✅</span>
+                                    <button onClick={() => setShowDeliverySearch(true)} className="btn btn-g" style={{ padding: "4px 8px", fontSize: 11 }}>Re-assign</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => { setUserSearchQ(""); setShowDeliverySearch(true); }} className="btn btn-p" style={{ padding: "6px 12px", fontSize: 12 }}>
+                                    Assign Agent
                                   </button>
                                 )}
-
-                                {selectedReq.delivery_status === 'out_for_delivery' && (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                    <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: 14, borderRadius: 10, color: "#10b981", fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}>
-                                      <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", animation: "pulse 1.5s infinite" }}></span>
-                                      Broadcasting Live GPS Location...
-                                    </div>
-                                    <div style={{ display: "flex", gap: 10 }}>
-                                      <button onClick={() => handleDeliveryUpdate('pending')} className="btn btn-g" style={{ flex: 1, justifyContent: "center" }}>
-                                        🛑 Stop Tracking
-                                      </button>
-                                      <button onClick={() => handleDeliveryUpdate('delivered')} className="btn btn-s" style={{ flex: 2, justifyContent: "center" }}>
-                                        ✅ Mark Delivered
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {selectedReq.delivery_status === 'delivered' && (
-                                  <div style={{ textAlign: "center", padding: "20px", color: "#15803d", background: T.btnSuccessBg, borderRadius: 10, fontWeight: 700 }}>
-                                    🎉 Successfully Delivered
-                                  </div>
-                                )}
                               </div>
-                            )}
+
+                              {/* Delivery Actions (Hide if no agent assigned) */}
+                              {selectedReq.delivery_boy_id && (
+                                <div style={{ marginTop: 10 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, marginBottom: 10, textTransform: "uppercase" }}>Actions</div>
+
+                                  {selectedReq.delivery_status === 'pending' && (
+                                    <button onClick={() => handleDeliveryUpdate('out_for_delivery')} className="btn btn-p" style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: 15 }}>
+                                      🛵 Start Live Delivery
+                                    </button>
+                                  )}
+
+                                  {selectedReq.delivery_status === 'out_for_delivery' && (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                      <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: 14, borderRadius: 10, color: "#10b981", fontWeight: 700, display: "flex", alignItems: "center", gap: 10 }}>
+                                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", animation: "pulse 1.5s infinite" }}></span>
+                                        Broadcasting Live GPS Location...
+                                      </div>
+                                      <div style={{ display: "flex", gap: 10 }}>
+                                        <button onClick={() => handleDeliveryUpdate('pending')} className="btn btn-g" style={{ flex: 1, justifyContent: "center" }}>
+                                          🛑 Stop Tracking
+                                        </button>
+                                        <button onClick={() => handleDeliveryUpdate('delivered')} className="btn btn-s" style={{ flex: 2, justifyContent: "center" }}>
+                                          ✅ Mark Delivered
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {selectedReq.delivery_status === 'delivered' && (
+                                    <div style={{ textAlign: "center", padding: "20px", color: "#15803d", background: T.btnSuccessBg, borderRadius: 10, fontWeight: 700 }}>
+                                      🎉 Successfully Delivered
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Empty state */
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14, background: isDark ? "rgba(6,11,20,0.5)" : T.pageBg }}>
+                  <div style={{ width: 72, height: 72, borderRadius: 18, background: T.accentLight, border: `1px solid ${T.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>💬</div>
+                  <div className="serif" style={{ fontSize: 20, color: T.textSecondary }}>CSC Shambhuganj Admin</div>
+                  <div style={{ fontSize: 13, color: T.textMuted }}>Select a chat to view messages</div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ──────────────────────────────────────────────────
+            TEAM TAB
+        ────────────────────────────────────────────────── */}
+          {activeTab === "team" && (
+            <div style={{ flex: 1, overflowY: "auto", padding: "28px", background: T.pageBg }}>
+              <div style={{ maxWidth: 1150, margin: "0 auto" }}>
+                {/* Header card */}
+                <div className="card" style={{ marginBottom: 22 }}>
+                  <SecHdr icon="👥" label="Team & User Management" />
+                  <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                    <p style={{ color: T.textSecondary, fontSize: 13 }}>Manage roles and system access for all registered users</p>
+                    <div style={{ position: "relative" }}>
+                      <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
+                      <input value={teamSearch} onChange={e => setTeamSearch(e.target.value)} placeholder="Search name or mobile…" className="inp" style={{ paddingLeft: 33, width: 260 }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(310px,1fr))", gap: 16 }}>
+                  {teamMembers
+                    .filter(u => !teamSearch || u.name?.toLowerCase().includes(teamSearch.toLowerCase()) || u.mobile?.includes(teamSearch))
+                    .map(user => (
+                      <div key={user.id} className="tcard" style={{ borderColor: user.role === "main_admin" ? T.accent : user.role === "co_admin" ? T.accentBorder : T.teamCardBorder }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 16 }}>
+                          <Avatar name={user.name} size={50} role={user.role} isDark={isDark} />
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 15, color: T.textPrimary, marginBottom: 4 }}>{user.name || "Unknown"}</div>
+                            <div className="mono" style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".08em", color: user.role === "main_admin" ? T.accent : user.role === "co_admin" ? "#2563eb" : T.textMuted }}>
+                              {user.role === "main_admin" ? "🏛️ MAIN ADMIN" : user.role === "co_admin" ? "🛡️ CO-ADMIN" : "👤 CITIZEN"}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 16, padding: "8px 12px", background: T.inputBg, borderRadius: 7, border: `1px solid ${T.inputBorder}` }}>
+                          <span className="mono">{user.mobile}</span>
+                        </div>
+                        {/* ✨ ADD THIS CERTIFICATE BUTTON */}
+                        <button
+                          className="btn btn-g"
+                          style={{ width: "100%", justifyContent: "center", marginBottom: isMainAdmin && user.id !== currentUser?.id ? 10 : 0 }}
+                          onClick={() => setCertUser(user)}
+                        >
+                          🎓 Issue Certificate
+                        </button>
+                        {isMainAdmin && user.id !== currentUser?.id && (
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <select className="inp" style={{ flex: 1, padding: "8px 11px", fontSize: 13 }} value={user.role} onChange={e => updateRole(user.id, e.target.value as UserRole)}>
+                              <option value="user">Citizen (User)</option>
+                              <option value="co_admin">Co-Admin</option>
+                              <option value="main_admin">Main Admin</option>
+                            </select>
+                            {user.role !== "user" && <button className="btn btn-d" style={{ padding: "8px 11px" }} onClick={() => removeCoAdmin(user.id)} title="Revoke"><Ico.X /></button>}
                           </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Empty state */
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14, background: isDark ? "rgba(6,11,20,0.5)" : T.pageBg }}>
-                <div style={{ width: 72, height: 72, borderRadius: 18, background: T.accentLight, border: `1px solid ${T.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>💬</div>
-                <div className="serif" style={{ fontSize: 20, color: T.textSecondary }}>CSC Shambhuganj Admin</div>
-                <div style={{ fontSize: 13, color: T.textMuted }}>Select a chat to view messages</div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ──────────────────────────────────────────────────
-            TEAM TAB
-        ────────────────────────────────────────────────── */}
-        {activeTab === "team" && (
-          <div style={{ flex: 1, overflowY: "auto", padding: "28px", background: T.pageBg }}>
-            <div style={{ maxWidth: 1150, margin: "0 auto" }}>
-              {/* Header card */}
-              <div className="card" style={{ marginBottom: 22 }}>
-                <SecHdr icon="👥" label="Team & User Management" />
-                <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                  <p style={{ color: T.textSecondary, fontSize: 13 }}>Manage roles and system access for all registered users</p>
-                  <div style={{ position: "relative" }}>
-                    <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
-                    <input value={teamSearch} onChange={e => setTeamSearch(e.target.value)} placeholder="Search name or mobile…" className="inp" style={{ paddingLeft: 33, width: 260 }} />
-                  </div>
+                    ))}
                 </div>
               </div>
+            </div>
+          )}
+        </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(310px,1fr))", gap: 16 }}>
-                {teamMembers
-                  .filter(u => !teamSearch || u.name?.toLowerCase().includes(teamSearch.toLowerCase()) || u.mobile?.includes(teamSearch))
-                  .map(user => (
-                    <div key={user.id} className="tcard" style={{ borderColor: user.role === "main_admin" ? T.accent : user.role === "co_admin" ? T.accentBorder : T.teamCardBorder }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 16 }}>
-                        <Avatar name={user.name} size={50} role={user.role} isDark={isDark} />
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 15, color: T.textPrimary, marginBottom: 4 }}>{user.name || "Unknown"}</div>
-                          <div className="mono" style={{ fontSize: 10, fontWeight: 800, letterSpacing: ".08em", color: user.role === "main_admin" ? T.accent : user.role === "co_admin" ? "#2563eb" : T.textMuted }}>
-                            {user.role === "main_admin" ? "🏛️ MAIN ADMIN" : user.role === "co_admin" ? "🛡️ CO-ADMIN" : "👤 CITIZEN"}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 16, padding: "8px 12px", background: T.inputBg, borderRadius: 7, border: `1px solid ${T.inputBorder}` }}>
-                        <span className="mono">{user.mobile}</span>
-                      </div>
-                      {/* ✨ ADD THIS CERTIFICATE BUTTON */}
-                      <button
-                        className="btn btn-g"
-                        style={{ width: "100%", justifyContent: "center", marginBottom: isMainAdmin && user.id !== currentUser?.id ? 10 : 0 }}
-                        onClick={() => setCertUser(user)}
-                      >
-                        🎓 Issue Certificate
-                      </button>
-                      {isMainAdmin && user.id !== currentUser?.id && (
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <select className="inp" style={{ flex: 1, padding: "8px 11px", fontSize: 13 }} value={user.role} onChange={e => updateRole(user.id, e.target.value as UserRole)}>
-                            <option value="user">Citizen (User)</option>
-                            <option value="co_admin">Co-Admin</option>
-                            <option value="main_admin">Main Admin</option>
-                          </select>
-                          {user.role !== "user" && <button className="btn btn-d" style={{ padding: "8px 11px" }} onClick={() => removeCoAdmin(user.id)} title="Revoke"><Ico.X /></button>}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+        {/* ════════════════════════════════════════════════════════
+          CERTIFICATE GENERATOR MODAL
+      ════════════════════════════════════════════════════════ */}
+        {certUser && (
+          <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setCertUser(null); }}>
+            <div className="modal-bx" style={{ maxWidth: 500, padding: 0, overflow: "hidden", background: T.modalBg }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: T.textPrimary }}>🎓 Certificate Center</div>
+                <button onClick={() => setCertUser(null)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
+              </div>
+              <div style={{ padding: 20 }}>
+                {/* Renders the tool targeting the selected user */}
+                <CertificateGenerator targetUserId={certUser.id} targetUserName={certUser.name || "Student"} isDark={isDark} />            </div>
+            </div>
+          </div>
+        )}
+
+
+
+        {/* ════════════════════════════════════════════════════════
+          BULK EXCEL UPLOAD MODAL
+      ════════════════════════════════════════════════════════ */}
+        {showBulkUpload && (
+          <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowBulkUpload(false); }}>
+            <div className="modal-bx" style={{ maxWidth: 900, maxHeight: "90vh", overflow: "auto", padding: 0, background: T.modalBg }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: T.textPrimary }}>📊 Bulk Certificate Upload</div>
+                <button onClick={() => setShowBulkUpload(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
+              </div>
+              <div style={{ padding: 24 }}>
+                <BulkCertificateGenerator isDark={isDark} />
               </div>
             </div>
           </div>
         )}
-      </div>
 
-      {/* ════════════════════════════════════════════════════════
-          CERTIFICATE GENERATOR MODAL
-      ════════════════════════════════════════════════════════ */}
-      {certUser && (
-        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setCertUser(null); }}>
-          <div className="modal-bx" style={{ maxWidth: 500, padding: 0, overflow: "hidden", background: T.modalBg }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${T.divider}`, background: T.sidebarHeaderBg }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: T.textPrimary }}>🎓 Certificate Center</div>
-              <button onClick={() => setCertUser(null)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
-            </div>
-            <div style={{ padding: 20 }}>
-              {/* Renders the tool targeting the selected user */}
-              <CertificateGenerator targetUserId={certUser.id} targetUserName={certUser.name || "Student"} isDark={isDark} />            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════════════
+        {/* ════════════════════════════════════════════════════════
           MODALS
       ════════════════════════════════════════════════════════ */}
 
-      {/* New Chat */}
-      {showNewChat && (
-        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowNewChat(false); }}>
-          <div className="modal-bx" style={{ maxWidth: 420 }}>
-            <div style={modalHdrStyle}>
-              <div style={modalHdrTitle}>💬 New Chat</div>
-              <button onClick={() => setShowNewChat(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
-            </div>
-            <div style={{ padding: "18px 22px" }}>
-              <div style={{ position: "relative", marginBottom: 14 }}>
-                <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
-                <input value={userSearchQ} onChange={e => setUserSearchQ(e.target.value)} placeholder="Search by name or mobile…" className="inp" style={{ paddingLeft: 33 }} autoFocus />
+        {/* New Chat */}
+        {showNewChat && (
+          <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowNewChat(false); }}>
+            <div className="modal-bx" style={{ maxWidth: 420 }}>
+              <div style={modalHdrStyle}>
+                <div style={modalHdrTitle}>💬 New Chat</div>
+                <button onClick={() => setShowNewChat(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
               </div>
-              <div style={{ maxHeight: 300, overflowY: "auto" }}>
-                {userSearchResults.map(u => (
-                  <div key={u.id} onClick={() => startNewChat(u)}
-                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px", borderRadius: 9, cursor: "pointer", transition: "background .15s", marginBottom: 3 }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.accentLight; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                    <Avatar name={u.name} size={38} isDark={isDark} />
+              <div style={{ padding: "18px 22px" }}>
+                <div style={{ position: "relative", marginBottom: 14 }}>
+                  <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
+                  <input value={userSearchQ} onChange={e => setUserSearchQ(e.target.value)} placeholder="Search by name or mobile…" className="inp" style={{ paddingLeft: 33 }} autoFocus />
+                </div>
+                <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                  {userSearchResults.map(u => (
+                    <div key={u.id} onClick={() => startNewChat(u)}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px", borderRadius: 9, cursor: "pointer", transition: "background .15s", marginBottom: 3 }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.accentLight; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                      <Avatar name={u.name} size={38} isDark={isDark} />
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{u.name || "Unknown"}</div>
+                        <div className="mono" style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{u.mobile}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {dUserSearch.length > 2 && !userSearchResults.length && <div style={{ padding: 22, textAlign: "center", color: T.textMuted, fontSize: 13 }}>No users found.</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delivery Agent Search Modal */}
+        {showDeliverySearch && (
+          <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowDeliverySearch(false); }}>
+            <div className="modal-bx" style={{ maxWidth: 460 }}>
+              <div style={modalHdrStyle}>
+                <div style={modalHdrTitle}>🛵 Assign Delivery Agent</div>
+                <button onClick={() => setShowDeliverySearch(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
+              </div>
+
+              <div style={{ padding: "18px 22px" }}>
+                <div style={{ position: "relative", marginBottom: 14 }}>
+                  <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
+                  <input value={userSearchQ} onChange={e => setUserSearchQ(e.target.value)} placeholder="Search agent by name or mobile…" className="inp" style={{ paddingLeft: 33 }} autoFocus />
+                </div>
+
+                <div style={{ maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
+                  {(() => {
+                    // ✨ Determine which list to show based on search input
+                    const displayUsers = userSearchQ.length > 2
+                      ? userSearchResults
+                      : teamMembers.filter(u => !userSearchQ || u.name?.toLowerCase().includes(userSearchQ.toLowerCase()) || u.mobile?.includes(userSearchQ));
+
+                    // ✨ "Not Found" State
+                    if (displayUsers.length === 0) {
+                      return (
+                        <div style={{ padding: "30px 20px", textAlign: "center", color: T.textMuted }}>
+                          <div style={{ fontSize: 32, marginBottom: 10 }}>🔍</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>No users found</div>
+                          <div style={{ fontSize: 13, marginTop: 4 }}>We couldn't find anyone matching "{userSearchQ}"</div>
+                        </div>
+                      );
+                    }
+
+                    // ✨ Render User List with Roles
+                    return displayUsers.map(u => (
+                      <div key={u.id} onClick={() => assignDeliveryAgent(u)}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 9, cursor: "pointer", transition: "all .15s", marginBottom: 6, border: `1px solid ${T.divider}` }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.accentLight; (e.currentTarget as HTMLElement).style.borderColor = T.accentBorder; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.borderColor = T.divider; }}>
+
+                        <Avatar name={u.name} size={42} role={u.role} isDark={isDark} />
+
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{u.name || "Unknown User"}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                            <div className="mono" style={{ fontSize: 11, color: T.textSecondary }}>{u.mobile || "No Mobile"}</div>
+
+                            {/* ✨ Show Exact Roles clearly */}
+                            <div className="mono" style={{ fontSize: 9, fontWeight: 800, letterSpacing: ".05em", color: u.role === "main_admin" ? T.accent : u.role === "co_admin" ? "#2563eb" : T.textMuted }}>
+                              {u.role === "main_admin" ? "🏛️ MAIN ADMIN" : u.role === "co_admin" ? "🛡️ CO-ADMIN" : "👤 CITIZEN"}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Assign */}
+        {showAssign && (
+          <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowAssign(false); }}>
+            <div className="modal-bx" style={{ maxWidth: 380 }}>
+              <div style={modalHdrStyle}>
+                <div style={modalHdrTitle}>👥 Assign Operator</div>
+                <button onClick={() => setShowAssign(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
+              </div>
+              <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 7 }}>
+                {teamMembers.filter(m => m.role !== "user").map(op => (
+                  <div key={op.id} onClick={() => assignTo(op.id, op.name || "")}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: 9, cursor: "pointer", transition: "all .15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.accentLight; (e.currentTarget as HTMLElement).style.borderColor = T.accentBorder; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.inputBg; (e.currentTarget as HTMLElement).style.borderColor = T.inputBorder; }}>
+                    <Avatar name={op.name} size={36} role={op.role} isDark={isDark} />
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{u.name || "Unknown"}</div>
-                      <div className="mono" style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{u.mobile}</div>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: T.textPrimary }}>{op.name}</div>
+                      <div className="mono" style={{ fontSize: 10, color: op.role === "main_admin" ? T.accent : "#2563eb", marginTop: 2 }}>{op.role.replace("_", " ").toUpperCase()}</div>
                     </div>
                   </div>
                 ))}
-                {dUserSearch.length > 2 && !userSearchResults.length && <div style={{ padding: 22, textAlign: "center", color: T.textMuted, fontSize: 13 }}>No users found.</div>}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Delivery Agent Search Modal */}
-      {showDeliverySearch && (
-        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowDeliverySearch(false); }}>
-          <div className="modal-bx" style={{ maxWidth: 460 }}>
-            <div style={modalHdrStyle}>
-              <div style={modalHdrTitle}>🛵 Assign Delivery Agent</div>
-              <button onClick={() => setShowDeliverySearch(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
-            </div>
-
-            <div style={{ padding: "18px 22px" }}>
-              <div style={{ position: "relative", marginBottom: 14 }}>
-                <span style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: T.inputPlaceholder }}><Ico.Search /></span>
-                <input value={userSearchQ} onChange={e => setUserSearchQ(e.target.value)} placeholder="Search agent by name or mobile…" className="inp" style={{ paddingLeft: 33 }} autoFocus />
-              </div>
-
-              <div style={{ maxHeight: 350, overflowY: "auto", paddingRight: 4 }}>
-                {(() => {
-                  // ✨ Determine which list to show based on search input
-                  const displayUsers = userSearchQ.length > 2
-                    ? userSearchResults
-                    : teamMembers.filter(u => !userSearchQ || u.name?.toLowerCase().includes(userSearchQ.toLowerCase()) || u.mobile?.includes(userSearchQ));
-
-                  // ✨ "Not Found" State
-                  if (displayUsers.length === 0) {
-                    return (
-                      <div style={{ padding: "30px 20px", textAlign: "center", color: T.textMuted }}>
-                        <div style={{ fontSize: 32, marginBottom: 10 }}>🔍</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>No users found</div>
-                        <div style={{ fontSize: 13, marginTop: 4 }}>We couldn't find anyone matching "{userSearchQ}"</div>
-                      </div>
-                    );
-                  }
-
-                  // ✨ Render User List with Roles
-                  return displayUsers.map(u => (
-                    <div key={u.id} onClick={() => assignDeliveryAgent(u)}
-                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px", borderRadius: 9, cursor: "pointer", transition: "all .15s", marginBottom: 6, border: `1px solid ${T.divider}` }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.accentLight; (e.currentTarget as HTMLElement).style.borderColor = T.accentBorder; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.borderColor = T.divider; }}>
-
-                      <Avatar name={u.name} size={42} role={u.role} isDark={isDark} />
-
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{u.name || "Unknown User"}</div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                          <div className="mono" style={{ fontSize: 11, color: T.textSecondary }}>{u.mobile || "No Mobile"}</div>
-
-                          {/* ✨ Show Exact Roles clearly */}
-                          <div className="mono" style={{ fontSize: 9, fontWeight: 800, letterSpacing: ".05em", color: u.role === "main_admin" ? T.accent : u.role === "co_admin" ? "#2563eb" : T.textMuted }}>
-                            {u.role === "main_admin" ? "🏛️ MAIN ADMIN" : u.role === "co_admin" ? "🛡️ CO-ADMIN" : "👤 CITIZEN"}
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  ));
-                })()}
+        {/* Resolve */}
+        {showMarkDone && selectedReq && (
+          <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowMarkDone(false); }}>
+            <div className="modal-bx" style={{ maxWidth: 360, textAlign: "center", padding: "44px 30px" }}>
+              <div style={{ fontSize: 52, marginBottom: 18 }}>✅</div>
+              <div className="serif" style={{ fontSize: 22, color: T.textPrimary, marginBottom: 8 }}>Mark as Resolved?</div>
+              <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 28, lineHeight: 1.6 }}>The citizen will be notified that their request is complete.</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="btn btn-s" style={{ flex: 1, justifyContent: "center", padding: "12px", fontSize: 14 }} onClick={() => changeStatus("done")}>Yes, Resolve</button>
+                <button className="btn btn-g" style={{ padding: "12px 20px" }} onClick={() => setShowMarkDone(false)}>Cancel</button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Assign */}
-      {showAssign && (
-        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowAssign(false); }}>
-          <div className="modal-bx" style={{ maxWidth: 380 }}>
-            <div style={modalHdrStyle}>
-              <div style={modalHdrTitle}>👥 Assign Operator</div>
-              <button onClick={() => setShowAssign(false)} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}><Ico.X /></button>
-            </div>
-            <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 7 }}>
-              {teamMembers.filter(m => m.role !== "user").map(op => (
-                <div key={op.id} onClick={() => assignTo(op.id, op.name || "")}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: 9, cursor: "pointer", transition: "all .15s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.accentLight; (e.currentTarget as HTMLElement).style.borderColor = T.accentBorder; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = T.inputBg; (e.currentTarget as HTMLElement).style.borderColor = T.inputBorder; }}>
-                  <Avatar name={op.name} size={36} role={op.role} isDark={isDark} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, color: T.textPrimary }}>{op.name}</div>
-                    <div className="mono" style={{ fontSize: 10, color: op.role === "main_admin" ? T.accent : "#2563eb", marginTop: 2 }}>{op.role.replace("_", " ").toUpperCase()}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Resolve */}
-      {showMarkDone && selectedReq && (
-        <div className="modal-ov" onClick={e => { if (e.target === e.currentTarget) setShowMarkDone(false); }}>
-          <div className="modal-bx" style={{ maxWidth: 360, textAlign: "center", padding: "44px 30px" }}>
-            <div style={{ fontSize: 52, marginBottom: 18 }}>✅</div>
-            <div className="serif" style={{ fontSize: 22, color: T.textPrimary, marginBottom: 8 }}>Mark as Resolved?</div>
-            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 28, lineHeight: 1.6 }}>The citizen will be notified that their request is complete.</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-s" style={{ flex: 1, justifyContent: "center", padding: "12px", fontSize: 14 }} onClick={() => changeStatus("done")}>Yes, Resolve</button>
-              <button className="btn btn-g" style={{ padding: "12px 20px" }} onClick={() => setShowMarkDone(false)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    </AuthGuard>
   );
 }
