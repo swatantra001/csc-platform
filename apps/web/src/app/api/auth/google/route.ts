@@ -29,29 +29,69 @@
 // }
 
 
+// import { NextRequest, NextResponse } from "next/server";
+// export const runtime = "edge";
+
+// export async function GET(req: NextRequest) {
+//   const clientId    = process.env.GOOGLE_CLIENT_ID!;
+//   const from        = req.nextUrl.searchParams.get("from") || "/dashboard";
+//   const isMobile    = req.nextUrl.searchParams.get("mobile") === "true";
+  
+//   // Encode mobile flag into state (backward-compatible)
+//   const state       = JSON.stringify({ from, mobile: isMobile });
+//   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`;
+
+//   const params = new URLSearchParams({
+//     client_id:     clientId,
+//     redirect_uri:  redirectUri,
+//     response_type: "code",
+//     scope:         "openid email profile",
+//     access_type:   "offline",
+//     prompt:        "select_account",
+//     state,
+//   });
+
+//   return NextResponse.redirect(
+//     `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+//   );
+// }
+
+
+
+
+
+
+
+
+
 import { NextRequest, NextResponse } from "next/server";
-export const runtime = "edge";
+
+// REMOVE THIS LINE: export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
-  const clientId    = process.env.GOOGLE_CLIENT_ID!;
-  const from        = req.nextUrl.searchParams.get("from") || "/dashboard";
-  const isMobile    = req.nextUrl.searchParams.get("mobile") === "true";
+  const clientId = process.env.GOOGLE_CLIENT_ID;
   
-  // Encode mobile flag into state (backward-compatible)
-  const state       = JSON.stringify({ from, mobile: isMobile });
+  // Safety check: If the variable is missing, log it and return an error
+  if (!clientId) {
+    console.error("CRITICAL: GOOGLE_CLIENT_ID is missing in environment variables.");
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
+  const from = req.nextUrl.searchParams.get("from") || "/dashboard";
+  const isMobile = req.nextUrl.searchParams.get("mobile") === "true";
+  
+  const state = JSON.stringify({ from, mobile: isMobile });
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`;
 
   const params = new URLSearchParams({
-    client_id:     clientId,
-    redirect_uri:  redirectUri,
+    client_id: clientId,
+    redirect_uri: redirectUri,
     response_type: "code",
-    scope:         "openid email profile",
-    access_type:   "offline",
-    prompt:        "select_account",
+    scope: "openid email profile",
+    access_type: "offline",
+    prompt: "select_account",
     state,
   });
 
-  return NextResponse.redirect(
-    `https://accounts.google.com/o/oauth2/v2/auth?${params}`
-  );
+  return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 }

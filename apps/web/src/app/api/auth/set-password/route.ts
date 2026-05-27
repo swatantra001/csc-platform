@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromToken, setPassword } from "@/lib/auth";
  
-export const runtime = "edge";
+// export const runtime = "edge";
  
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("csc_token")?.value;

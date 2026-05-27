@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyOtp } from "@/lib/auth";
  
-export const runtime = "edge";
+// export const runtime = "edge";
  
 export async function POST(req: NextRequest) {
   try {

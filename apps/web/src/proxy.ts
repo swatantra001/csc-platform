@@ -14,7 +14,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. Allow public SEO and static files to pass through immediately
-  if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/manifest.json') {
+  if (pathname === '/sitemap.xml' || pathname === '/robots.txt' || pathname === '/manifest.json' || pathname.startsWith('/api/auth')) {
     return NextResponse.next();
   }
 
@@ -59,7 +59,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Run middleware on these paths (exclude static files, api routes, _next)
   matcher: [
-    // Ignore next internals, static files, images, sitemaps, and robots
-    '/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json).*)',
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|manifest.json).*)',
   ],
 };
