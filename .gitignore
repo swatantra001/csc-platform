@@ -71,4 +71,4 @@ google-services.json
 # Env
 .env
 .env.local
-osrm-data/
+osrm-data/.npmrc 
