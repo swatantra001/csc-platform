@@ -4,24 +4,43 @@ import { NextRequest, NextResponse } from "next/server";
 // Local dev (Windows/macOS/Linux desktop): uses regular puppeteer with bundled Chrome
 // Production (Vercel/AWS Lambda): uses puppeteer-core + @sparticuz/chromium
 
-async function getBrowser() {
-  const isLocal = process.env.NODE_ENV === "development" || !process.env.VERCEL;
+// async function getBrowser() {
+//   const isLocal = process.env.NODE_ENV === "development" || !process.env.VERCEL;
 
-  if (isLocal) {
-    const puppeteer = await import("puppeteer");
-    return puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-  } else {
-    const puppeteer = await import("puppeteer-core");
-    const chromium = await import("@sparticuz/chromium") as any;  // ← FIX: add 'as any'
-    return puppeteer.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless as any,
-    });
-  }
+//   if (isLocal) {
+//     const puppeteer = await import("puppeteer");
+//     return puppeteer.launch({
+//       headless: true,
+//       args: ["--no-sandbox", "--disable-setuid-sandbox"],
+//     });
+//   } else {
+//     const puppeteer = await import("puppeteer-core");
+//     const chromium = await import("@sparticuz/chromium") as any;  // ← FIX: add 'as any'
+//     return puppeteer.launch({
+//       args: chromium.args,
+//       executablePath: await chromium.executablePath(),
+//       headless: chromium.headless as any,
+//     });
+//   }
+// }
+
+// ─── Bulletproof Browser Launch ──────────────────────────────────────────────
+async function getBrowser() {
+  const puppeteer = await import("puppeteer");
+  
+  // If on Windows (local dev), use default. 
+  // If on Linux (EC2), forcefully point to the system-installed Chromium.
+  const execPath = process.platform === "win32" ? undefined : "/usr/bin/chromium-browser";
+
+  return puppeteer.launch({
+    headless: true,
+    executablePath: execPath,
+    args: [
+      "--no-sandbox", 
+      "--disable-setuid-sandbox", 
+      "--disable-dev-shm-usage" // ← CRITICAL for Linux servers to prevent memory crashes
+    ],
+  });
 }
 
 export async function POST(req: NextRequest) {
