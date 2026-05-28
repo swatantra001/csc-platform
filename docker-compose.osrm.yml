@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # ─── STAGE 1: Data Downloader & Cropper ───
+  osrm-data-prep:
+    image: ubuntu:22.04
+    container_name: osrm-data-prep
+    volumes:
+      - ./osrm-data:/data
+    command: >
+      bash -c "
+        set -e
+        if [ ! -f /data/jaunpur-latest.osm.pbf ]; then
+          echo '⬇️ Updating package lists...' &&
+          apt-get update -qq && 
+          echo '⬇️ Installing dependencies...' &&
+          apt-get install -y -qq wget osmium-tool ca-certificates &&
+          
+          echo '⬇️ Downloading India Map (~1.6GB, this may take a minute)...' &&
+          wget -U 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' --show-progress https://download.geofabrik.de/asia/india-latest.osm.pbf -O /data/india-latest.osm.pbf &&
+          
+          echo '✂️ Cropping down to Jaunpur district bounds...' &&
+          osmium extract -b 82.40,25.50,83.10,26.15 /data/india-latest.osm.pbf -o /data/jaunpur-latest.osm.pbf &&
+          
+          echo '🧹 Cleaning up 1.6GB raw map to save disk space...' &&
+          rm /data/india-latest.osm.pbf &&
+          echo '✅ Data prep complete.';
+        else
+          echo '✅ Jaunpur data already exists. Skipping download.';
+        fi
+      "
+
+  # ─── STAGE 2: OSRM Graph Builder ───
+  osrm-builder:
+    image: osrm/osrm-backend:latest
+    container_name: osrm-builder
+    depends_on:
+      osrm-data-prep:
+        condition: service_completed_successfully
+    volumes:
+      - ./osrm-data:/data
+    command: >
+      bash -c "
+        set -e
+        if [ ! -f /data/jaunpur-latest.osrm.hsgr ]; then
+          echo '🔨 Extracting Road Network...' &&
+          osrm-extract -p /opt/car.lua /data/jaunpur-latest.osm.pbf &&
+          echo '🔨 Partitioning Graph...' &&
+          osrm-partition /data/jaunpur-latest.osrm &&
+          echo '🔨 Customizing Weights...' &&
+          osrm-customize /data/jaunpur-latest.osrm &&
+          echo '✅ OSRM Build complete.';
+        else
+          echo '✅ OSRM Graph already built. Skipping.';
+        fi
+      "
+
+  # ─── STAGE 3: The Live Routing Server ───
+  osrm-server:
+    image: osrm/osrm-backend:latest
+    container_name: srilal-osrm-server
+    depends_on:
+      osrm-builder:
+        condition: service_completed_successfully
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./osrm-data:/data
+    command: "osrm-routed --algorithm mld --max-table-size 10000 --max-nearest-size 100 /data/jaunpur-latest.osrm"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M

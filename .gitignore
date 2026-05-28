@@ -45,6 +45,8 @@ next-env.d.ts
 
 
 
+
+
 # Keystore — NEVER commit (but keep safe backup!)
 *.jks
 *.keystore
@@ -69,5 +71,4 @@ google-services.json
 # Env
 .env
 .env.local
-
-apps/mobile/
+osrm-data

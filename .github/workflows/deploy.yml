@@ -17,33 +17,30 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          set -e  # <--- ADD THIS LINE! It forces the pipeline to crash and show RED if any step fails.
-          # 1. Navigate to the monorepo root
+          set -e  # Forces pipeline to crash if any step fails
+          
+          # 1. Navigate to the project root on EC2
           cd /home/ubuntu/csc-platform
           
-          # 2. Pull latest code
+          # 2. Pull latest standalone web code
           git reset --hard
           git pull origin main
           
-          # 3. FORCE DELETE any accidental nested workspace files
-          rm -f apps/web/pnpm-workspace.yaml
-          
-          # 4. Inject the .env.local file SAFELY without breaking \n characters
-          cat << 'EOF' > apps/web/.env.local
+          # 3. Inject the .env.local file SAFELY at the ROOT
+          cat << 'EOF' > .env.local
           ${{ secrets.ENV_FILE }}
           EOF
           
-          # 5. Clean up old build cache and install dependencies
-          rm -rf apps/web/.next
+          # 4. Clean up old build cache and install dependencies
+          rm -rf .next
           pnpm install
           
-          # 6. Build the Next.js web app
-          pnpm --filter web build
+          # 5. Build the Next.js web app (No monorepo filters needed!)
+          pnpm build
           
-          # 7. Navigate into the web app and restart the Socket.io server
-          cd apps/web
+          # 6. Restart the Socket.io server directly in the root
           export NODE_ENV=production
           pm2 restart csc-web --update-env || pm2 start server.js --name "csc-web"
           
-          # 8. Save PM2 state to survive server reboots
+          # 7. Save PM2 state to survive server reboots
           pm2 save
