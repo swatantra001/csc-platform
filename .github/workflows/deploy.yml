@@ -32,7 +32,8 @@ jobs:
           EOF
           
           # 4. Clean up old build cache and install dependencies
-          rm -rf .next
+          rm -rf .next node_modules
+          export CI=true
           pnpm install
           
           # 5. Build the Next.js web app (No monorepo filters needed!)
