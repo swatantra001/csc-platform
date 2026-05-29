@@ -580,3 +580,32 @@ export async function adminAssignDeliveryBoyAction(requestId: string, deliveryBo
     return true;
 }
 
+// ─── AADHAR ACTIONS ───────────────────────────────────────────────────────────
+export async function adminGetAadharScansAction() {
+  await requireCOAdmin();
+  const { data, error } = await supabaseAdmin
+    .from("aadhar_scans")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function adminDeleteAadharScanAction(id: string) {
+  const admin = await requireAdmin();
+  if (admin.role !== "main_admin") throw new Error("Only Main Admin can delete Aadhar records");
+  const { error } = await supabaseAdmin.from("aadhar_scans").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+export async function adminDeleteAadharScansAction(ids: string[]) {
+  const admin = await requireAdmin();
+  if (admin.role !== "main_admin") throw new Error("Only Main Admin can delete Aadhar records");
+  const { error } = await supabaseAdmin.from("aadhar_scans").delete().in("id", ids);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+ 
