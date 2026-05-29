@@ -73,6 +73,7 @@
     "@types/leaflet-routing-machine": "^3.2.9",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
+    "@types/pako": "^2.0.4",
     "@types/qrcode.react": "^3.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
