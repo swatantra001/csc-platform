@@ -8,6 +8,7 @@ import { inflate } from 'pako';
 import { Buffer } from 'buffer';
 import { createRequire } from 'module';
 import path from 'path';
+import * as ort from 'onnxruntime-node';
 
 import { JpxImage } from 'jpeg2000';
 import * as JPEG from 'jpeg-js';
@@ -189,6 +190,476 @@ async function detectQR(buffer: Buffer): Promise<QRDetectResult> {
 // Base10 Big Integer → bytes → zlib inflate → delimiter 0xFF separated fields
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// interface ParsedQR {
+// 	emailMobileStatus: string;
+// 	referenceId: string;
+// 	name: string | null;
+// 	dob: string | null;
+// 	gender: string | null;
+// 	careOf: string | null;
+// 	district: string | null;
+// 	landmark: string | null;
+// 	house: string | null;
+// 	location: string | null;
+// 	pinCode: string | null;
+// 	postOffice: string | null;
+// 	state: string | null;
+// 	street: string | null;
+// 	subDistrict: string | null;
+// 	vtc: string | null;
+// 	last4Digits: string | null;
+// 	lastDigit: string | null;
+// 	photoBase64: string | null;
+// 	hasEmail: boolean;
+// 	hasMobile: boolean;
+// 	rawXml: string | null;
+// 	parseStrategy: string;
+// }
+
+// class UIDAISecureQRParser {
+
+// 	parse(qrStringData: string, binaryData?: Uint8Array | null): ParsedQR | null {
+// 		// Strategy 1: jsQR gave us a base10 string (UIDAI Secure QR standard)
+// 		if (qrStringData && /^\d+$/.test(qrStringData.trim()) && qrStringData.length > 100) {
+// 			const result = this.parseFromBase10(qrStringData.trim());
+// 			if (result) return result;
+// 		}
+
+// 		// Strategy 2: jsQR gave us binary data (some versions)
+// 		if (binaryData && binaryData.length > 50) {
+// 			const result = this.parseFromBinary(binaryData);
+// 			if (result) return result;
+// 		}
+
+// 		// Strategy 3: The QR string might be plain XML (old format / e-Aadhaar)
+// 		if (qrStringData && (qrStringData.includes('<?xml') || qrStringData.includes('<PrintLetterBarcodeData'))) {
+// 			return this.parseFromXmlString(qrStringData);
+// 		}
+
+// 		// Strategy 4: Try treating string as base64
+// 		if (qrStringData && qrStringData.length > 100) {
+// 			try {
+// 				const decoded = Buffer.from(qrStringData, 'base64');
+// 				if (decoded.length > 50) {
+// 					const result = this.parseFromBinary(new Uint8Array(decoded));
+// 					if (result) return result;
+// 				}
+// 			} catch { }
+// 		}
+
+// 		return null;
+// 	}
+
+// 	private parseFromBase10(base10Str: string): ParsedQR | null {
+// 		try {
+// 			console.log('[AadharAPI] Attempting base10 parse, length:', base10Str.length);
+
+// 			const bytes = this.bigIntStringToBytes(base10Str);
+// 			console.log('[AadharAPI] Converted to', bytes.length, 'bytes');
+// 			console.log('[AadharAPI] First 20 bytes:', Array.from(bytes.slice(0, 20)).map(b => b.toString(16)).join(' '));
+
+// 			if (bytes.length < 50) {
+// 				console.log('[AadharAPI] Too few bytes after conversion');
+// 				return null;
+// 			}
+
+// 			// Try decompression
+// 			let decompressed: Uint8Array;
+// 			try {
+// 				decompressed = inflate(bytes);
+// 				console.log('[AadharAPI] Decompressed to', decompressed.length, 'bytes');
+// 			} catch (inflateErr) {
+// 				console.log('[AadharAPI] Inflate failed, trying raw bytes');
+// 				decompressed = bytes;
+// 			}
+
+// 			return this.parseDelimitedFields(decompressed);
+
+// 		} catch (e: any) {
+// 			console.log('[AadharAPI] Base10 parse failed:', e.message);
+// 			return null;
+// 		}
+// 	}
+
+// 	private bigIntStringToBytes(base10Str: string): Uint8Array {
+// 		const clean = base10Str.replace(/\s/g, '');
+// 		let big = BigInt(clean);
+// 		const bytes: number[] = [];
+
+// 		while (big > 0n) {
+// 			bytes.unshift(Number(big & 0xFFn));
+// 			big = big >> 8n;
+// 		}
+
+// 		return new Uint8Array(bytes);
+// 	}
+
+// 	private parseFromBinary(binaryData: Uint8Array): ParsedQR | null {
+// 		try {
+// 			let decompressed: Uint8Array;
+// 			try {
+// 				decompressed = inflate(binaryData);
+// 			} catch {
+// 				decompressed = binaryData;
+// 			}
+// 			return this.parseDelimitedFields(decompressed);
+// 		} catch (e) {
+// 			return null;
+// 		}
+// 	}
+
+// 	private parseDelimitedFields(data: Uint8Array): ParsedQR | null {
+// 		const fields: Uint8Array[] = [];
+// 		let start = 0;
+// 		for (let i = 0; i < data.length; i++) {
+// 			if (data[i] === 255) {
+// 				fields.push(data.slice(start, i));
+// 				start = i + 1;
+// 			}
+// 		}
+// 		if (start < data.length) {
+// 			fields.push(data.slice(start));
+// 		}
+
+// 		console.log('[AadharAPI] Found', fields.length, 'fields by delimiter 255');
+// 		console.log('[AadharAPI] Field lengths:', fields.map((f, i) => `F${i}=${f.length}`).join(', '));
+
+// 		if (fields.length < 5) {
+// 			console.log('[AadharAPI] Too few fields, trying alternative delimiter');
+// 			// Some versions use 254 instead of 255
+// 			return this.parseWithDelimiter(data, 254);
+// 		}
+
+// 		const decode = (bytes: Uint8Array): string => {
+// 			try {
+// 				return new TextDecoder('iso-8859-1').decode(bytes);
+// 			} catch {
+// 				return new TextDecoder('utf-8').decode(bytes);
+// 			}
+// 		};
+
+// 		const getField = (idx: number): string | null => {
+// 			if (idx >= fields.length) return null;
+// 			const val = decode(fields[idx]).trim();
+// 			return val || null;
+// 		};
+
+// 		// Log first few fields for debugging
+// 		for (let i = 0; i < Math.min(fields.length, 6); i++) {
+// 			console.log(`[AadharAPI] Field ${i}: "${getField(i)?.slice(0, 50)}"`);
+// 		}
+
+// 		const emailMobileStatus = getField(0) || '0';
+// 		const referenceId = getField(1) || '';
+
+// 		const last4Match = referenceId.match(/^(\d{4})/);
+// 		const last4Digits = last4Match ? last4Match[1] : null;
+
+// 		const statusNum = parseInt(emailMobileStatus, 10) || 0;
+// 		const hasEmail = statusNum === 1 || statusNum === 3;
+// 		const hasMobile = statusNum === 2 || statusNum === 3;
+
+// 		// Photo extraction
+// 		let photoBase64: string | null = null;
+
+// 		// Method 1: Count delimiters to find photo start
+// 		let delimiterCount = 0;
+// 		let photoStartIndex = 0;
+// 		for (let i = 0; i < data.length; i++) {
+// 			if (data[i] === 255) {
+// 				delimiterCount++;
+// 				if (delimiterCount === 16) { // After 16th field (0-15 = 16 delimiters for 16 fields)
+// 					photoStartIndex = i + 1;
+// 					break;
+// 				}
+// 			}
+// 		}
+
+// 		// Calculate end: total - signature(256) - optional hashes
+// 		let photoEndIndex = data.length - 256;
+// 		if (hasMobile) photoEndIndex -= 32;
+// 		if (hasEmail) photoEndIndex -= 32;
+
+// 		if (photoStartIndex > 0 && photoEndIndex > photoStartIndex && (photoEndIndex - photoStartIndex) > 100) {
+// 			const photoBytes = data.slice(photoStartIndex, photoEndIndex);
+// 			console.log('[AadharAPI] Photo bytes:', photoBytes.length, 'First bytes:', Array.from(photoBytes.slice(0, 10)).map(b => b.toString(16)).join(' '));
+// 			photoBase64 = this.processPhoto(photoBytes);
+// 		} else {
+// 			// Fallback: photo is everything after last delimiter before signature area
+// 			const lastDelim = data.lastIndexOf(255, data.length - 300);
+// 			if (lastDelim > 0) {
+// 				const photoBytes = data.slice(lastDelim + 1, photoEndIndex);
+// 				if (photoBytes.length > 100) {
+// 					photoBase64 = this.processPhoto(photoBytes);
+// 				}
+// 			}
+// 		}
+
+// 		// Build address
+// 		const addressParts = [
+// 			getField(5), getField(8), getField(13), getField(7),
+// 			getField(9), getField(15), getField(6), getField(14),
+// 			getField(12), getField(10),
+// 		].filter(Boolean);
+
+// 		const address = addressParts.length > 0 ? addressParts.join(', ') : null;
+
+// 		return {
+// 			emailMobileStatus,
+// 			referenceId,
+// 			name: getField(2),
+// 			dob: getField(3),
+// 			gender: getField(4),
+// 			careOf: getField(5),
+// 			district: getField(6),
+// 			landmark: getField(7),
+// 			house: getField(8),
+// 			location: getField(9),
+// 			pinCode: getField(10),
+// 			postOffice: getField(11),
+// 			state: getField(12),
+// 			street: getField(13),
+// 			subDistrict: getField(14),
+// 			vtc: getField(15),
+// 			last4Digits,
+// 			lastDigit: last4Digits ? last4Digits.slice(-1) : null,
+// 			photoBase64,
+// 			hasEmail,
+// 			hasMobile,
+// 			rawXml: null,
+// 			parseStrategy: 'uidai-delimited'
+// 		};
+// 	}
+
+// 	private parseWithDelimiter(data: Uint8Array, delimiter: number): ParsedQR | null {
+// 		const fields: Uint8Array[] = [];
+// 		let start = 0;
+// 		for (let i = 0; i < data.length; i++) {
+// 			if (data[i] === delimiter) {
+// 				fields.push(data.slice(start, i));
+// 				start = i + 1;
+// 			}
+// 		}
+// 		if (start < data.length) fields.push(data.slice(start));
+
+// 		if (fields.length < 5) return null;
+
+// 		const decode = (bytes: Uint8Array): string => {
+// 			try { return new TextDecoder('iso-8859-1').decode(bytes); }
+// 			catch { return new TextDecoder('utf-8').decode(bytes); }
+// 		};
+
+// 		const getField = (idx: number): string | null => {
+// 			if (idx >= fields.length) return null;
+// 			const val = decode(fields[idx]).trim();
+// 			return val || null;
+// 		};
+
+// 		const refId = getField(1) || '';
+// 		const last4 = refId.match(/^(\d{4})/)?.[1] || null;
+
+// 		return {
+// 			emailMobileStatus: getField(0) || '0',
+// 			referenceId: refId,
+// 			name: getField(2),
+// 			dob: getField(3),
+// 			gender: getField(4),
+// 			careOf: getField(5),
+// 			district: getField(6),
+// 			landmark: getField(7),
+// 			house: getField(8),
+// 			location: getField(9),
+// 			pinCode: getField(10),
+// 			postOffice: getField(11),
+// 			state: getField(12),
+// 			street: getField(13),
+// 			subDistrict: getField(14),
+// 			vtc: getField(15),
+// 			last4Digits: last4,
+// 			lastDigit: last4 ? last4.slice(-1) : null,
+// 			photoBase64: null,
+// 			hasEmail: false,
+// 			hasMobile: false,
+// 			rawXml: null,
+// 			parseStrategy: `alt-delimiter-${delimiter}`
+// 		};
+// 	}
+
+// 	private parseFromXmlString(xmlStr: string): ParsedQR | null {
+// 		const extract = (attr: string): string | null => {
+// 			const regex = new RegExp(`${attr}\\s*=\\s*["']([^"']+)["']`, 'i');
+// 			const m = xmlStr.match(regex);
+// 			return m ? m[1].trim() : null;
+// 		};
+
+// 		const refId = extract('refId') || extract('referenceId') || '';
+// 		const last4 = refId.match(/(\d{4})$/)?.[1] || null;
+
+// 		return {
+// 			emailMobileStatus: '0',
+// 			referenceId: refId,
+// 			name: extract('name'),
+// 			dob: extract('dob') || extract('yob'),
+// 			gender: extract('gender'),
+// 			careOf: extract('co'),
+// 			district: extract('dist'),
+// 			landmark: extract('lm'),
+// 			house: extract('house'),
+// 			location: extract('loc'),
+// 			pinCode: extract('pc'),
+// 			postOffice: extract('po'),
+// 			state: extract('state'),
+// 			street: extract('street'),
+// 			subDistrict: extract('subdist'),
+// 			vtc: extract('vtc'),
+// 			last4Digits: last4,
+// 			lastDigit: last4 ? last4.slice(-1) : null,
+// 			photoBase64: null,
+// 			hasEmail: false,
+// 			hasMobile: false,
+// 			rawXml: xmlStr.slice(0, 1000),
+// 			parseStrategy: 'xml-fallback'
+// 		};
+// 	}
+
+// 	private processPhoto(photoBytes: Uint8Array): string | null {
+// 		if (!photoBytes || photoBytes.length < 100) return null;
+
+// 		try {
+// 			const isJpeg = photoBytes[0] === 0xFF && photoBytes[1] === 0xD8;
+// 			const isJp2Boxed = photoBytes[0] === 0x00 && photoBytes[1] === 0x00 &&
+// 				photoBytes[2] === 0x00 && photoBytes[3] === 0x0C;
+// 			const isJpxBoxed = photoBytes[0] === 0x00 && photoBytes[1] === 0x00 &&
+// 				photoBytes[2] === 0x00 && photoBytes[3] === 0x0D;
+// 			const isJ2kCodestream = photoBytes[0] === 0xFF && photoBytes[1] === 0x4F &&
+// 				photoBytes[2] === 0xFF && photoBytes[3] === 0x51;
+// 			const isPng = photoBytes[0] === 0x89 && photoBytes[1] === 0x50;
+
+// 			// ── Standard formats: pass through as Base64 ──
+// 			if (isJpeg) {
+// 				return `data:image/jpeg;base64,${Buffer.from(photoBytes).toString('base64')}`;
+// 			}
+// 			if (isPng) {
+// 				return `data:image/png;base64,${Buffer.from(photoBytes).toString('base64')}`;
+// 			}
+// 			if (isJp2Boxed || isJpxBoxed) {
+// 				// Boxed JP2/JPX — browser might support it, but likely won't on mobile
+// 				// Still, pass it through as-is
+// 				return `data:image/jp2;base64,${Buffer.from(photoBytes).toString('base64')}`;
+// 			}
+
+// 			// ── JPEG 2000 Codestream (J2C): Decode → RGBA → JPEG ──
+//             if (isJ2kCodestream) {
+//                 console.log('[AadharAPI] Detected J2K codestream, decoding via jpeg2000...');
+
+//                 // THE FIX: Convert the standard Uint8Array into a native Node.js Buffer.
+//                 // The JpxImage library requires Node Buffer methods like .readUInt16BE() to work!
+//                 const nodeBuffer = Buffer.from(photoBytes.buffer, photoBytes.byteOffset, photoBytes.byteLength);
+
+//                 const jpx = new JpxImage();
+//                 jpx.parse(nodeBuffer); // <-- Pass the Node Buffer here!
+
+//                 const width = jpx.width;
+//                 const height = jpx.height;
+//                 const numComponents = jpx.componentsCount;
+
+//                 console.log(`[AadharAPI] J2K decoded: ${width}x${height}, ${numComponents} component(s)`);
+
+//                 if (!width || !height || !jpx.tiles || jpx.tiles.length === 0) {
+//                     console.log('[AadharAPI] J2K decode produced no image data');
+//                     return null;
+//                 }
+
+//                 // jpeg2000 gives us tiles with pixel data
+//                 const tile = jpx.tiles[0];
+//                 const tileData = tile.items; 
+
+//                const totalPixels = width * height;
+//                 const rgba = new Uint8Array(totalPixels * 4);
+
+//                 // Most UIDAI J2K photos are 3 components (RGB) and are Interleaved (RGB RGB RGB)
+//                 // Meaning tileData[0] is Red, tileData[1] is Green, tileData[2] is Blue.
+//                 // If tileData.length === totalPixels * numComponents, it is definitely interleaved or flat.
+
+//                 if (numComponents === 1) {
+//                     // Grayscale — replicate R=G=B
+//                     for (let i = 0; i < totalPixels; i++) {
+//                         const val = tileData[i];
+//                         rgba[i * 4] = val;
+//                         rgba[i * 4 + 1] = val;
+//                         rgba[i * 4 + 2] = val;
+//                         rgba[i * 4 + 3] = 255;
+//                     }
+//                 } else if (numComponents === 3) {
+//                     if (tileData.length >= totalPixels * 3) {
+//                         // Standard Interleaved (RGB RGB RGB) - MOST COMMON FOR AADHAAR
+//                         for (let i = 0; i < totalPixels; i++) {
+//                             rgba[i * 4]     = tileData[i * 3];     // R
+//                             rgba[i * 4 + 1] = tileData[i * 3 + 1]; // G
+//                             rgba[i * 4 + 2] = tileData[i * 3 + 2]; // B
+//                             rgba[i * 4 + 3] = 255;                 // A
+//                         }
+//                     } else {
+//                         // Sequential (RRR GGG BBB)
+//                         for (let i = 0; i < totalPixels; i++) {
+//                             rgba[i * 4]     = tileData[i];
+//                             rgba[i * 4 + 1] = tileData[i + totalPixels];
+//                             rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
+//                             rgba[i * 4 + 3] = 255;
+//                         }
+//                     }
+//                 } else if (numComponents >= 4) {
+//                     if (tileData.length >= totalPixels * 4) {
+//                         // Interleaved RGBA
+//                         for (let i = 0; i < totalPixels; i++) {
+//                             rgba[i * 4]     = tileData[i * 4];
+//                             rgba[i * 4 + 1] = tileData[i * 4 + 1];
+//                             rgba[i * 4 + 2] = tileData[i * 4 + 2];
+//                             rgba[i * 4 + 3] = tileData[i * 4 + 3];
+//                         }
+//                     } else {
+//                          // Sequential RGBA
+//                          for (let i = 0; i < totalPixels; i++) {
+//                             rgba[i * 4]     = tileData[i];
+//                             rgba[i * 4 + 1] = tileData[i + totalPixels];
+//                             rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
+//                             rgba[i * 4 + 3] = tileData[i + totalPixels * 3];
+//                         }
+//                     }
+//                 }
+
+//                 // Encode RGBA to JPEG using pure-JS jpeg-js
+//                 const rawImageData = {
+//                     data: rgba,
+//                     width: width,
+//                     height: height,
+//                 };
+
+//                 const jpegBuffer = JPEG.encode(rawImageData, 85); // quality 85
+
+//                 console.log(`[AadharAPI] Encoded to JPEG: ${jpegBuffer.data.length} bytes`);
+
+//                 return `data:image/jpeg;base64,${Buffer.from(jpegBuffer.data).toString('base64')}`;
+//             }
+
+// 			// ── Unknown format: fallback to raw base64 ──
+// 			console.log('[AadharAPI] Unknown photo format, returning raw bytes');
+// 			return `data:application/octet-stream;base64,${Buffer.from(photoBytes).toString('base64')}`;
+
+// 		} catch (e: any) {
+// 			console.log('[AadharAPI] Photo processing failed:', e.message || e);
+// 			return null;
+// 		}
+// 	}
+// }
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CORRECT UIDAI SECURE QR PARSER — VERSION-AWARE (V2, V1, Standard)
+// Base10 Big Integer → bytes → zlib inflate → delimiter 0xFF separated fields
+// ═══════════════════════════════════════════════════════════════════════════════
+
 interface ParsedQR {
 	emailMobileStatus: string;
 	referenceId: string;
@@ -213,6 +684,12 @@ interface ParsedQR {
 	hasMobile: boolean;
 	rawXml: string | null;
 	parseStrategy: string;
+}
+
+interface SchemaInfo {
+	version: string;
+	offset: number;        // Fields to skip at start (1 for V2, 0 for standard)
+	textFieldCount: number; // Number of text fields before photo blob
 }
 
 class UIDAISecureQRParser {
@@ -307,130 +784,8 @@ class UIDAISecureQRParser {
 		}
 	}
 
-	private parseDelimitedFields(data: Uint8Array): ParsedQR | null {
-		const fields: Uint8Array[] = [];
-		let start = 0;
-		for (let i = 0; i < data.length; i++) {
-			if (data[i] === 255) {
-				fields.push(data.slice(start, i));
-				start = i + 1;
-			}
-		}
-		if (start < data.length) {
-			fields.push(data.slice(start));
-		}
-
-		console.log('[AadharAPI] Found', fields.length, 'fields by delimiter 255');
-		console.log('[AadharAPI] Field lengths:', fields.map((f, i) => `F${i}=${f.length}`).join(', '));
-
-		if (fields.length < 5) {
-			console.log('[AadharAPI] Too few fields, trying alternative delimiter');
-			// Some versions use 254 instead of 255
-			return this.parseWithDelimiter(data, 254);
-		}
-
-		const decode = (bytes: Uint8Array): string => {
-			try {
-				return new TextDecoder('iso-8859-1').decode(bytes);
-			} catch {
-				return new TextDecoder('utf-8').decode(bytes);
-			}
-		};
-
-		const getField = (idx: number): string | null => {
-			if (idx >= fields.length) return null;
-			const val = decode(fields[idx]).trim();
-			return val || null;
-		};
-
-		// Log first few fields for debugging
-		for (let i = 0; i < Math.min(fields.length, 6); i++) {
-			console.log(`[AadharAPI] Field ${i}: "${getField(i)?.slice(0, 50)}"`);
-		}
-
-		const emailMobileStatus = getField(0) || '0';
-		const referenceId = getField(1) || '';
-
-		const last4Match = referenceId.match(/^(\d{4})/);
-		const last4Digits = last4Match ? last4Match[1] : null;
-
-		const statusNum = parseInt(emailMobileStatus, 10) || 0;
-		const hasEmail = statusNum === 1 || statusNum === 3;
-		const hasMobile = statusNum === 2 || statusNum === 3;
-
-		// Photo extraction
-		let photoBase64: string | null = null;
-
-		// Method 1: Count delimiters to find photo start
-		let delimiterCount = 0;
-		let photoStartIndex = 0;
-		for (let i = 0; i < data.length; i++) {
-			if (data[i] === 255) {
-				delimiterCount++;
-				if (delimiterCount === 16) { // After 16th field (0-15 = 16 delimiters for 16 fields)
-					photoStartIndex = i + 1;
-					break;
-				}
-			}
-		}
-
-		// Calculate end: total - signature(256) - optional hashes
-		let photoEndIndex = data.length - 256;
-		if (hasMobile) photoEndIndex -= 32;
-		if (hasEmail) photoEndIndex -= 32;
-
-		if (photoStartIndex > 0 && photoEndIndex > photoStartIndex && (photoEndIndex - photoStartIndex) > 100) {
-			const photoBytes = data.slice(photoStartIndex, photoEndIndex);
-			console.log('[AadharAPI] Photo bytes:', photoBytes.length, 'First bytes:', Array.from(photoBytes.slice(0, 10)).map(b => b.toString(16)).join(' '));
-			photoBase64 = this.processPhoto(photoBytes);
-		} else {
-			// Fallback: photo is everything after last delimiter before signature area
-			const lastDelim = data.lastIndexOf(255, data.length - 300);
-			if (lastDelim > 0) {
-				const photoBytes = data.slice(lastDelim + 1, photoEndIndex);
-				if (photoBytes.length > 100) {
-					photoBase64 = this.processPhoto(photoBytes);
-				}
-			}
-		}
-
-		// Build address
-		const addressParts = [
-			getField(5), getField(8), getField(13), getField(7),
-			getField(9), getField(15), getField(6), getField(14),
-			getField(12), getField(10),
-		].filter(Boolean);
-
-		const address = addressParts.length > 0 ? addressParts.join(', ') : null;
-
-		return {
-			emailMobileStatus,
-			referenceId,
-			name: getField(2),
-			dob: getField(3),
-			gender: getField(4),
-			careOf: getField(5),
-			district: getField(6),
-			landmark: getField(7),
-			house: getField(8),
-			location: getField(9),
-			pinCode: getField(10),
-			postOffice: getField(11),
-			state: getField(12),
-			street: getField(13),
-			subDistrict: getField(14),
-			vtc: getField(15),
-			last4Digits,
-			lastDigit: last4Digits ? last4Digits.slice(-1) : null,
-			photoBase64,
-			hasEmail,
-			hasMobile,
-			rawXml: null,
-			parseStrategy: 'uidai-delimited'
-		};
-	}
-
-	private parseWithDelimiter(data: Uint8Array, delimiter: number): ParsedQR | null {
+	// ── Split raw bytes by delimiter ──
+	private splitFields(data: Uint8Array, delimiter: number): Uint8Array[] {
 		const fields: Uint8Array[] = [];
 		let start = 0;
 		for (let i = 0; i < data.length; i++) {
@@ -439,10 +794,73 @@ class UIDAISecureQRParser {
 				start = i + 1;
 			}
 		}
-		if (start < data.length) fields.push(data.slice(start));
+		if (start < data.length) {
+			fields.push(data.slice(start));
+		}
+		return fields;
+	}
 
-		if (fields.length < 5) return null;
+	// ── Auto-detect schema version by examining first few fields ──
+	private detectSchema(fields: Uint8Array[]): SchemaInfo {
+		const decode = (idx: number): string => {
+			if (idx >= fields.length) return '';
+			try { return new TextDecoder('iso-8859-1').decode(fields[idx]).trim(); }
+			catch { return new TextDecoder('utf-8').decode(fields[idx]).trim(); }
+		};
 
+		const f0 = decode(0);
+		const f1 = decode(1);
+		const f2 = decode(2);
+
+		// Pattern A: V2 prefix (older cards) — F0="V2", F1=status, F2=refId
+		if (/^V\d+$/i.test(f0) && /^\d{1,2}$/.test(f1) && /^\d{18,22}$/.test(f2)) {
+			console.log(`[AadharAPI] Schema detected: ${f0} (offset=1, textFields=17)`);
+			return { version: f0.toUpperCase(), offset: 1, textFieldCount: 17 };
+		}
+
+		// Pattern B: Standard (newer cards) — F0=status, F1=refId, F2=name
+		if (/^\d{1,2}$/.test(f0) && /^\d{18,22}$/.test(f1) && f2.length > 2 && /[a-zA-Z]/.test(f2)) {
+			console.log('[AadharAPI] Schema detected: STANDARD (offset=0, textFields=16)');
+			return { version: 'STANDARD', offset: 0, textFieldCount: 16 };
+		}
+
+		// Pattern C: Fallback brute-force — find the reference ID pattern
+		for (let i = 0; i < Math.min(fields.length, 6); i++) {
+			const val = decode(i);
+			const next = decode(i + 1);
+			if (/^\d{18,22}$/.test(val) && next.length > 2 && /[a-zA-Z]/.test(next)) {
+				const offset = i - 1; // refId should be at index 1
+				console.log(`[AadharAPI] Schema detected: FALLBACK (offset=${offset}, textFields=${16 + offset})`);
+				return { version: 'FALLBACK', offset: Math.max(0, offset), textFieldCount: 16 + Math.max(0, offset) };
+			}
+		}
+
+		// Pattern D: Desperate fallback — assume standard and let validation catch errors
+		console.log('[AadharAPI] Schema unknown, assuming STANDARD with validation fallback');
+		return { version: 'UNKNOWN', offset: 0, textFieldCount: 16 };
+	}
+
+	// ── Main delimited field parser ──
+	private parseDelimitedFields(data: Uint8Array): ParsedQR | null {
+		const fields = this.splitFields(data, 255);
+
+		console.log('[AadharAPI] Found', fields.length, 'fields by delimiter 255');
+		console.log('[AadharAPI] Field lengths:', fields.map((f, i) => `F${i}=${f.length}`).join(', '));
+
+		if (fields.length < 5) {
+			console.log('[AadharAPI] Too few fields, trying alternative delimiter 254');
+			const altFields = this.splitFields(data, 254);
+			if (altFields.length >= 5) {
+				return this.parseWithFields(altFields, data, 'alt-delimiter-254', );
+			}
+			return null;
+		}
+
+		return this.parseWithFields(fields, data, 'uidai-delimited');
+	}
+
+	// ── Core parsing logic with dynamic offset ──
+	private parseWithFields(fields: Uint8Array[], rawData: Uint8Array, strategy: string): ParsedQR | null {
 		const decode = (bytes: Uint8Array): string => {
 			try { return new TextDecoder('iso-8859-1').decode(bytes); }
 			catch { return new TextDecoder('utf-8').decode(bytes); }
@@ -454,33 +872,158 @@ class UIDAISecureQRParser {
 			return val || null;
 		};
 
-		const refId = getField(1) || '';
-		const last4 = refId.match(/^(\d{4})/)?.[1] || null;
+		// Detect schema version
+		const schema = this.detectSchema(fields);
+
+		// Extract fields using detected offset
+		let emailMobileStatus = getField(0 + schema.offset) || '0';
+		let referenceId = getField(1 + schema.offset) || '';
+		let name = getField(2 + schema.offset);
+		let dob = getField(3 + schema.offset);
+		let gender = getField(4 + schema.offset);
+		let careOf = getField(5 + schema.offset);
+		let district = getField(6 + schema.offset);
+		let landmark = getField(7 + schema.offset);
+		let house = getField(8 + schema.offset);
+		let location = getField(9 + schema.offset);
+		let pinCode = getField(10 + schema.offset);
+		let postOffice = getField(11 + schema.offset);
+		let state = getField(12 + schema.offset);
+		let street = getField(13 + schema.offset);
+		let subDistrict = getField(14 + schema.offset);
+		let vtc = getField(15 + schema.offset);
+
+		// ── VALIDATION & AUTO-CORRECTION ──
+		// If critical fields look wrong, try alternate offsets as fallback
+		const refIdValid = /^\d{18,22}$/.test(referenceId);
+		const nameValid = !!name && name.length > 2 && /[a-zA-Z\s]/.test(name) && !/^\d+$/.test(name);
+		const dobValid = !!dob && /^\d{2}[\/\-.]\d{2}[\/\-.]\d{4}$/.test(dob);
+		const genderValid = !!gender && /^[MFT]$/.test(gender);
+
+		if (!refIdValid || !nameValid || !dobValid || !genderValid) {
+			console.log('[AadharAPI] Primary schema validation failed, trying alternate offsets...');
+			
+			const tryOffsets = schema.offset === 0 ? [1] : [0];
+			for (const altOffset of tryOffsets) {
+				const altRefId = getField(1 + altOffset) || '';
+				const altName = getField(2 + altOffset);
+				const altDob = getField(3 + altOffset);
+				const altGender = getField(4 + altOffset);
+
+				const altRefValid = /^\d{18,22}$/.test(altRefId);
+				const altNameValid = !!altName && altName.length > 2 && /[a-zA-Z\s]/.test(altName) && !/^\d+$/.test(altName);
+				const altDobValid = !!altDob && /^\d{2}[\/\-.]\d{2}[\/\-.]\d{4}$/.test(altDob);
+				const altGenderValid = !!altGender && /^[MFT]$/.test(altGender);
+
+				if (altRefValid && altNameValid && altDobValid && altGenderValid) {
+					console.log(`[AadharAPI] Auto-corrected to offset=${altOffset}`);
+					schema.offset = altOffset;
+					schema.textFieldCount = 16 + altOffset;
+					emailMobileStatus = getField(0 + altOffset) || '0';
+					referenceId = altRefId;
+					name = altName;
+					dob = altDob;
+					gender = altGender;
+					careOf = getField(5 + altOffset);
+					district = getField(6 + altOffset);
+					landmark = getField(7 + altOffset);
+					house = getField(8 + altOffset);
+					location = getField(9 + altOffset);
+					pinCode = getField(10 + altOffset);
+					postOffice = getField(11 + altOffset);
+					state = getField(12 + altOffset);
+					street = getField(13 + altOffset);
+					subDistrict = getField(14 + altOffset);
+					vtc = getField(15 + altOffset);
+					break;
+				}
+			}
+		}
+
+		// Log extracted fields for debugging
+		console.log(`[AadharAPI] Field 0+${schema.offset}: "${emailMobileStatus}"`);
+		console.log(`[AadharAPI] Field 1+${schema.offset}: "${referenceId?.slice(0, 50)}"`);
+		console.log(`[AadharAPI] Field 2+${schema.offset}: "${name?.slice(0, 50)}"`);
+		console.log(`[AadharAPI] Field 3+${schema.offset}: "${dob?.slice(0, 50)}"`);
+		console.log(`[AadharAPI] Field 4+${schema.offset}: "${gender?.slice(0, 50)}"`);
+
+		// Extract last 4 digits from reference ID (first 4 digits of refId = last 4 of Aadhaar)
+		const last4Match = referenceId.match(/^(\d{4})/);
+		const last4Digits = last4Match ? last4Match[1] : null;
+
+		const statusNum = parseInt(emailMobileStatus, 10) || 0;
+		const hasEmail = statusNum === 1 || statusNum === 3;
+		const hasMobile = statusNum === 2 || statusNum === 3;
+
+		// ── PHOTO EXTRACTION: Dynamic boundary detection ──
+		let photoBase64: string | null = null;
+		
+		// Method 1: Count delimiters to find photo start after all text fields
+		let delimiterCount = 0;
+		let photoStartIndex = 0;
+		for (let i = 0; i < rawData.length; i++) {
+			if (rawData[i] === 255) {
+				delimiterCount++;
+				if (delimiterCount === schema.textFieldCount) {
+					photoStartIndex = i + 1;
+					break;
+				}
+			}
+		}
+
+		// Calculate end: total - signature(256) - optional hashes
+		let photoEndIndex = rawData.length - 256;
+		if (hasMobile) photoEndIndex -= 32;
+		if (hasEmail) photoEndIndex -= 32;
+
+		if (photoStartIndex > 0 && photoEndIndex > photoStartIndex && (photoEndIndex - photoStartIndex) > 100) {
+			const photoBytes = rawData.slice(photoStartIndex, photoEndIndex);
+			console.log('[AadharAPI] Photo bytes:', photoBytes.length, 'First bytes:', Array.from(photoBytes.slice(0, 10)).map(b => b.toString(16)).join(' '));
+			photoBase64 = this.processPhoto(photoBytes);
+		} else {
+			// Fallback: find last delimiter before signature area
+			const searchStart = rawData.length - 300 - (hasMobile ? 32 : 0) - (hasEmail ? 32 : 0);
+			const lastDelim = rawData.lastIndexOf(255, Math.max(0, searchStart));
+			if (lastDelim > 0) {
+				const photoBytes = rawData.slice(lastDelim + 1, photoEndIndex);
+				if (photoBytes.length > 100) {
+					console.log('[AadharAPI] Photo fallback bytes:', photoBytes.length);
+					photoBase64 = this.processPhoto(photoBytes);
+				}
+			}
+		}
+
+		// Build address in logical order
+		const addressParts = [
+			careOf, house, street, landmark, location, vtc, district, subDistrict, state, pinCode
+		].filter(Boolean);
+
+		const address = addressParts.length > 0 ? addressParts.join(', ') : null;
 
 		return {
-			emailMobileStatus: getField(0) || '0',
-			referenceId: refId,
-			name: getField(2),
-			dob: getField(3),
-			gender: getField(4),
-			careOf: getField(5),
-			district: getField(6),
-			landmark: getField(7),
-			house: getField(8),
-			location: getField(9),
-			pinCode: getField(10),
-			postOffice: getField(11),
-			state: getField(12),
-			street: getField(13),
-			subDistrict: getField(14),
-			vtc: getField(15),
-			last4Digits: last4,
-			lastDigit: last4 ? last4.slice(-1) : null,
-			photoBase64: null,
-			hasEmail: false,
-			hasMobile: false,
+			emailMobileStatus,
+			referenceId,
+			name,
+			dob,
+			gender,
+			careOf,
+			district,
+			landmark,
+			house,
+			location,
+			pinCode,
+			postOffice,
+			state,
+			street,
+			subDistrict,
+			vtc,
+			last4Digits,
+			lastDigit: last4Digits ? last4Digits.slice(-1) : null,
+			photoBase64,
+			hasEmail,
+			hasMobile,
 			rawXml: null,
-			parseStrategy: `alt-delimiter-${delimiter}`
+			parseStrategy: `${strategy}-${schema.version}`
 		};
 	}
 
@@ -521,135 +1064,263 @@ class UIDAISecureQRParser {
 		};
 	}
 
+	// private processPhoto(photoBytes: Uint8Array): string | null {
+	// 	if (!photoBytes || photoBytes.length < 100) return null;
+
+	// 	try {
+	// 		const isJpeg = photoBytes[0] === 0xFF && photoBytes[1] === 0xD8;
+	// 		const isJp2Boxed = photoBytes[0] === 0x00 && photoBytes[1] === 0x00 &&
+	// 			photoBytes[2] === 0x00 && photoBytes[3] === 0x0C;
+	// 		const isJpxBoxed = photoBytes[0] === 0x00 && photoBytes[1] === 0x00 &&
+	// 			photoBytes[2] === 0x00 && photoBytes[3] === 0x0D;
+	// 		const isJ2kCodestream = photoBytes[0] === 0xFF && photoBytes[1] === 0x4F &&
+	// 			photoBytes[2] === 0xFF && photoBytes[3] === 0x51;
+	// 		const isPng = photoBytes[0] === 0x89 && photoBytes[1] === 0x50;
+
+	// 		// ── Standard formats: pass through as Base64 ──
+	// 		if (isJpeg) {
+	// 			return `data:image/jpeg;base64,${Buffer.from(photoBytes).toString('base64')}`;
+	// 		}
+	// 		if (isPng) {
+	// 			return `data:image/png;base64,${Buffer.from(photoBytes).toString('base64')}`;
+	// 		}
+	// 		if (isJp2Boxed || isJpxBoxed) {
+	// 			return `data:image/jp2;base64,${Buffer.from(photoBytes).toString('base64')}`;
+	// 		}
+
+	// 		// ── JPEG 2000 Codestream (J2C): Decode → RGBA → JPEG ──
+	// 		if (isJ2kCodestream) {
+	// 			console.log('[AadharAPI] Detected J2K codestream, decoding via jpeg2000...');
+
+	// 			const nodeBuffer = Buffer.from(photoBytes.buffer, photoBytes.byteOffset, photoBytes.byteLength);
+
+	// 			const jpx = new JpxImage();
+	// 			jpx.parse(nodeBuffer);
+
+	// 			const width = jpx.width;
+	// 			const height = jpx.height;
+	// 			const numComponents = jpx.componentsCount;
+
+	// 			console.log(`[AadharAPI] J2K decoded: ${width}x${height}, ${numComponents} component(s)`);
+
+	// 			if (!width || !height || !jpx.tiles || jpx.tiles.length === 0) {
+	// 				console.log('[AadharAPI] J2K decode produced no image data');
+	// 				return null;
+	// 			}
+
+	// 			const tile = jpx.tiles[0];
+	// 			const tileData = tile.items;
+
+	// 			const totalPixels = width * height;
+	// 			const rgba = new Uint8Array(totalPixels * 4);
+
+	// 			if (numComponents === 1) {
+	// 				for (let i = 0; i < totalPixels; i++) {
+	// 					const val = tileData[i];
+	// 					rgba[i * 4] = val;
+	// 					rgba[i * 4 + 1] = val;
+	// 					rgba[i * 4 + 2] = val;
+	// 					rgba[i * 4 + 3] = 255;
+	// 				}
+	// 			} else if (numComponents === 3) {
+	// 				if (tileData.length >= totalPixels * 3) {
+	// 					for (let i = 0; i < totalPixels; i++) {
+	// 						rgba[i * 4] = tileData[i * 3];
+	// 						rgba[i * 4 + 1] = tileData[i * 3 + 1];
+	// 						rgba[i * 4 + 2] = tileData[i * 3 + 2];
+	// 						rgba[i * 4 + 3] = 255;
+	// 					}
+	// 				} else {
+	// 					for (let i = 0; i < totalPixels; i++) {
+	// 						rgba[i * 4] = tileData[i];
+	// 						rgba[i * 4 + 1] = tileData[i + totalPixels];
+	// 						rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
+	// 						rgba[i * 4 + 3] = 255;
+	// 					}
+	// 				}
+	// 			} else if (numComponents >= 4) {
+	// 				if (tileData.length >= totalPixels * 4) {
+	// 					for (let i = 0; i < totalPixels; i++) {
+	// 						rgba[i * 4] = tileData[i * 4];
+	// 						rgba[i * 4 + 1] = tileData[i * 4 + 1];
+	// 						rgba[i * 4 + 2] = tileData[i * 4 + 2];
+	// 						rgba[i * 4 + 3] = tileData[i * 4 + 3];
+	// 					}
+	// 				} else {
+	// 					for (let i = 0; i < totalPixels; i++) {
+	// 						rgba[i * 4] = tileData[i];
+	// 						rgba[i * 4 + 1] = tileData[i + totalPixels];
+	// 						rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
+	// 						rgba[i * 4 + 3] = tileData[i + totalPixels * 3];
+	// 					}
+	// 				}
+	// 			}
+
+	// 			const rawImageData = { data: rgba, width, height };
+	// 			const jpegBuffer = JPEG.encode(rawImageData, 85);
+
+	// 			console.log(`[AadharAPI] Encoded to JPEG: ${jpegBuffer.data.length} bytes`);
+
+	// 			return `data:image/jpeg;base64,${Buffer.from(jpegBuffer.data).toString('base64')}`;
+	// 		}
+
+	// 		// ── Unknown format: fallback to raw base64 ──
+	// 		console.log('[AadharAPI] Unknown photo format, returning raw bytes');
+	// 		return `data:application/octet-stream;base64,${Buffer.from(photoBytes).toString('base64')}`;
+
+	// 	} catch (e: any) {
+	// 		console.log('[AadharAPI] Photo processing failed:', e.message || e);
+	// 		return null;
+	// 	}
+	// }
 	private processPhoto(photoBytes: Uint8Array): string | null {
-		if (!photoBytes || photoBytes.length < 100) return null;
+	if (!photoBytes || photoBytes.length < 100) return null;
 
-		try {
-			const isJpeg = photoBytes[0] === 0xFF && photoBytes[1] === 0xD8;
-			const isJp2Boxed = photoBytes[0] === 0x00 && photoBytes[1] === 0x00 &&
-				photoBytes[2] === 0x00 && photoBytes[3] === 0x0C;
-			const isJpxBoxed = photoBytes[0] === 0x00 && photoBytes[1] === 0x00 &&
-				photoBytes[2] === 0x00 && photoBytes[3] === 0x0D;
-			const isJ2kCodestream = photoBytes[0] === 0xFF && photoBytes[1] === 0x4F &&
-				photoBytes[2] === 0xFF && photoBytes[3] === 0x51;
-			const isPng = photoBytes[0] === 0x89 && photoBytes[1] === 0x50;
+	try {
+		// ═══ STRIP GARBAGE PREFIX (Newer cards inject masked ID text) ═══
+		let cleanBytes = photoBytes;
+		let offset = 0;
+		const maxScan = Math.min(photoBytes.length, 100);
 
-			// ── Standard formats: pass through as Base64 ──
-			if (isJpeg) {
-				return `data:image/jpeg;base64,${Buffer.from(photoBytes).toString('base64')}`;
+		for (let i = 0; i < maxScan; i++) {
+			const b0 = photoBytes[i];
+			const b1 = photoBytes[i + 1];
+			const b2 = photoBytes[i + 2];
+			const b3 = photoBytes[i + 3];
+
+			// JPEG marker: FF D8
+			if (b0 === 0xFF && b1 === 0xD8) {
+				offset = i;
+				break;
 			}
-			if (isPng) {
-				return `data:image/png;base64,${Buffer.from(photoBytes).toString('base64')}`;
+			// J2K codestream: FF 4F FF 51
+			if (b0 === 0xFF && b1 === 0x4F && b2 === 0xFF && b3 === 0x51) {
+				offset = i;
+				break;
 			}
-			if (isJp2Boxed || isJpxBoxed) {
-				// Boxed JP2/JPX — browser might support it, but likely won't on mobile
-				// Still, pass it through as-is
-				return `data:image/jp2;base64,${Buffer.from(photoBytes).toString('base64')}`;
+			// JP2 box: 00 00 00 0C or 00 00 00 0D
+			if (b0 === 0x00 && b1 === 0x00 && b2 === 0x00 && (b3 === 0x0C || b3 === 0x0D)) {
+				offset = i;
+				break;
 			}
-
-			// ── JPEG 2000 Codestream (J2C): Decode → RGBA → JPEG ──
-            if (isJ2kCodestream) {
-                console.log('[AadharAPI] Detected J2K codestream, decoding via jpeg2000...');
-
-                // THE FIX: Convert the standard Uint8Array into a native Node.js Buffer.
-                // The JpxImage library requires Node Buffer methods like .readUInt16BE() to work!
-                const nodeBuffer = Buffer.from(photoBytes.buffer, photoBytes.byteOffset, photoBytes.byteLength);
-
-                const jpx = new JpxImage();
-                jpx.parse(nodeBuffer); // <-- Pass the Node Buffer here!
-
-                const width = jpx.width;
-                const height = jpx.height;
-                const numComponents = jpx.componentsCount;
-
-                console.log(`[AadharAPI] J2K decoded: ${width}x${height}, ${numComponents} component(s)`);
-
-                if (!width || !height || !jpx.tiles || jpx.tiles.length === 0) {
-                    console.log('[AadharAPI] J2K decode produced no image data');
-                    return null;
-                }
-
-                // jpeg2000 gives us tiles with pixel data
-                const tile = jpx.tiles[0];
-                const tileData = tile.items; 
-
-               const totalPixels = width * height;
-                const rgba = new Uint8Array(totalPixels * 4);
-
-                // Most UIDAI J2K photos are 3 components (RGB) and are Interleaved (RGB RGB RGB)
-                // Meaning tileData[0] is Red, tileData[1] is Green, tileData[2] is Blue.
-                // If tileData.length === totalPixels * numComponents, it is definitely interleaved or flat.
-
-                if (numComponents === 1) {
-                    // Grayscale — replicate R=G=B
-                    for (let i = 0; i < totalPixels; i++) {
-                        const val = tileData[i];
-                        rgba[i * 4] = val;
-                        rgba[i * 4 + 1] = val;
-                        rgba[i * 4 + 2] = val;
-                        rgba[i * 4 + 3] = 255;
-                    }
-                } else if (numComponents === 3) {
-                    if (tileData.length >= totalPixels * 3) {
-                        // Standard Interleaved (RGB RGB RGB) - MOST COMMON FOR AADHAAR
-                        for (let i = 0; i < totalPixels; i++) {
-                            rgba[i * 4]     = tileData[i * 3];     // R
-                            rgba[i * 4 + 1] = tileData[i * 3 + 1]; // G
-                            rgba[i * 4 + 2] = tileData[i * 3 + 2]; // B
-                            rgba[i * 4 + 3] = 255;                 // A
-                        }
-                    } else {
-                        // Sequential (RRR GGG BBB)
-                        for (let i = 0; i < totalPixels; i++) {
-                            rgba[i * 4]     = tileData[i];
-                            rgba[i * 4 + 1] = tileData[i + totalPixels];
-                            rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
-                            rgba[i * 4 + 3] = 255;
-                        }
-                    }
-                } else if (numComponents >= 4) {
-                    if (tileData.length >= totalPixels * 4) {
-                        // Interleaved RGBA
-                        for (let i = 0; i < totalPixels; i++) {
-                            rgba[i * 4]     = tileData[i * 4];
-                            rgba[i * 4 + 1] = tileData[i * 4 + 1];
-                            rgba[i * 4 + 2] = tileData[i * 4 + 2];
-                            rgba[i * 4 + 3] = tileData[i * 4 + 3];
-                        }
-                    } else {
-                         // Sequential RGBA
-                         for (let i = 0; i < totalPixels; i++) {
-                            rgba[i * 4]     = tileData[i];
-                            rgba[i * 4 + 1] = tileData[i + totalPixels];
-                            rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
-                            rgba[i * 4 + 3] = tileData[i + totalPixels * 3];
-                        }
-                    }
-                }
-
-                // Encode RGBA to JPEG using pure-JS jpeg-js
-                const rawImageData = {
-                    data: rgba,
-                    width: width,
-                    height: height,
-                };
-
-                const jpegBuffer = JPEG.encode(rawImageData, 85); // quality 85
-
-                console.log(`[AadharAPI] Encoded to JPEG: ${jpegBuffer.data.length} bytes`);
-
-                return `data:image/jpeg;base64,${Buffer.from(jpegBuffer.data).toString('base64')}`;
-            }
-
-			// ── Unknown format: fallback to raw base64 ──
-			console.log('[AadharAPI] Unknown photo format, returning raw bytes');
-			return `data:application/octet-stream;base64,${Buffer.from(photoBytes).toString('base64')}`;
-
-		} catch (e: any) {
-			console.log('[AadharAPI] Photo processing failed:', e.message || e);
-			return null;
+			// PNG marker: 89 50
+			if (b0 === 0x89 && b1 === 0x50) {
+				offset = i;
+				break;
+			}
 		}
+
+		if (offset > 0) {
+			console.log(`[AadharAPI] Stripped ${offset} garbage bytes from photo start. Prefix: "${new TextDecoder('ascii').decode(photoBytes.slice(0, Math.min(offset, 20)))}"`);
+			cleanBytes = photoBytes.slice(offset);
+		}
+
+		// ═══ FORMAT DETECTION (now on clean bytes) ═══
+		const isJpeg = cleanBytes[0] === 0xFF && cleanBytes[1] === 0xD8;
+		const isJp2Boxed = cleanBytes[0] === 0x00 && cleanBytes[1] === 0x00 &&
+			cleanBytes[2] === 0x00 && cleanBytes[3] === 0x0C;
+		const isJpxBoxed = cleanBytes[0] === 0x00 && cleanBytes[1] === 0x00 &&
+			cleanBytes[2] === 0x00 && cleanBytes[3] === 0x0D;
+		const isJ2kCodestream = cleanBytes[0] === 0xFF && cleanBytes[1] === 0x4F &&
+			cleanBytes[2] === 0xFF && cleanBytes[3] === 0x51;
+		const isPng = cleanBytes[0] === 0x89 && cleanBytes[1] === 0x50;
+
+		// ── Standard formats: pass through as Base64 ──
+		if (isJpeg) {
+			return `data:image/jpeg;base64,${Buffer.from(cleanBytes).toString('base64')}`;
+		}
+		if (isPng) {
+			return `data:image/png;base64,${Buffer.from(cleanBytes).toString('base64')}`;
+		}
+		if (isJp2Boxed || isJpxBoxed) {
+			return `data:image/jp2;base64,${Buffer.from(cleanBytes).toString('base64')}`;
+		}
+
+		// ── JPEG 2000 Codestream (J2C): Decode → RGBA → JPEG ──
+		if (isJ2kCodestream) {
+			console.log('[AadharAPI] Detected J2K codestream, decoding via jpeg2000...');
+
+			const nodeBuffer = Buffer.from(cleanBytes.buffer, cleanBytes.byteOffset, cleanBytes.byteLength);
+
+			const jpx = new JpxImage();
+			jpx.parse(nodeBuffer);
+
+			const width = jpx.width;
+			const height = jpx.height;
+			const numComponents = jpx.componentsCount;
+
+			console.log(`[AadharAPI] J2K decoded: ${width}x${height}, ${numComponents} component(s)`);
+
+			if (!width || !height || !jpx.tiles || jpx.tiles.length === 0) {
+				console.log('[AadharAPI] J2K decode produced no image data');
+				return null;
+			}
+
+			const tile = jpx.tiles[0];
+			const tileData = tile.items;
+
+			const totalPixels = width * height;
+			const rgba = new Uint8Array(totalPixels * 4);
+
+			if (numComponents === 1) {
+				for (let i = 0; i < totalPixels; i++) {
+					const val = tileData[i];
+					rgba[i * 4] = val;
+					rgba[i * 4 + 1] = val;
+					rgba[i * 4 + 2] = val;
+					rgba[i * 4 + 3] = 255;
+				}
+			} else if (numComponents === 3) {
+				if (tileData.length >= totalPixels * 3) {
+					for (let i = 0; i < totalPixels; i++) {
+						rgba[i * 4] = tileData[i * 3];
+						rgba[i * 4 + 1] = tileData[i * 3 + 1];
+						rgba[i * 4 + 2] = tileData[i * 3 + 2];
+						rgba[i * 4 + 3] = 255;
+					}
+				} else {
+					for (let i = 0; i < totalPixels; i++) {
+						rgba[i * 4] = tileData[i];
+						rgba[i * 4 + 1] = tileData[i + totalPixels];
+						rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
+						rgba[i * 4 + 3] = 255;
+					}
+				}
+			} else if (numComponents >= 4) {
+				if (tileData.length >= totalPixels * 4) {
+					for (let i = 0; i < totalPixels; i++) {
+						rgba[i * 4] = tileData[i * 4];
+						rgba[i * 4 + 1] = tileData[i * 4 + 1];
+						rgba[i * 4 + 2] = tileData[i * 4 + 2];
+						rgba[i * 4 + 3] = tileData[i * 4 + 3];
+					}
+				} else {
+					for (let i = 0; i < totalPixels; i++) {
+						rgba[i * 4] = tileData[i];
+						rgba[i * 4 + 1] = tileData[i + totalPixels];
+						rgba[i * 4 + 2] = tileData[i + totalPixels * 2];
+						rgba[i * 4 + 3] = tileData[i + totalPixels * 3];
+					}
+				}
+			}
+
+			const rawImageData = { data: rgba, width, height };
+			const jpegBuffer = JPEG.encode(rawImageData, 85);
+
+			console.log(`[AadharAPI] Encoded to JPEG: ${jpegBuffer.data.length} bytes`);
+
+			return `data:image/jpeg;base64,${Buffer.from(jpegBuffer.data).toString('base64')}`;
+		}
+
+		// ── Unknown format: fallback to raw base64 ──
+		console.log('[AadharAPI] Unknown photo format after stripping, returning raw bytes');
+		return `data:application/octet-stream;base64,${Buffer.from(cleanBytes).toString('base64')}`;
+
+	} catch (e: any) {
+		console.log('[AadharAPI] Photo processing failed:', e.message || e);
+		return null;
 	}
+}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1036,3 +1707,5 @@ export async function POST(req: NextRequest) {
 		);
 	}
 }
+
+
