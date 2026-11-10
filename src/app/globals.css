@@ -144,6 +144,10 @@ canvas {
   }
 }
 
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+}
+
 
 
 body {

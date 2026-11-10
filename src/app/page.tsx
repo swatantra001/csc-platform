@@ -17,11 +17,17 @@ import Footer from "@/components/landing/sections/Footer";
 export default function LandingPage() {
   const [isDark, setIsDark] = useState(false);
 
+
+
   // Init theme from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("csc_theme");
     if (saved) setIsDark(saved === "dark");
-    else setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
+    else {
+      setIsDark(false);
+      localStorage.setItem("csc_theme", "light");
+    }
+    // else setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
   }, []);
 
   // Single toggle function — shared with Navbar

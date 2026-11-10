@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ─── Route protection rules ─────────────────────────────────────────────────
 // Public routes — no login needed
-const PUBLIC_ROUTES = ["/", "/status", "/verify", "posts", "galary", "/courses", "sitemap.xml"];
+const PUBLIC_ROUTES = ["/", "/status", "/verify", "posts", "galary", "/courses", "sitemap.xml", "/public", "/image.png", "/images/aadhaar-banking.jpg", "/images/csc-hub.jpg", "/images/ocr-ledger.jpg", "/images/client-portal.jpg", "/images/notice-board.jpg", "/images/railconnect.jpg"];
 
 // User routes — any logged-in user
 const USER_ROUTES = ["/dashboard"];

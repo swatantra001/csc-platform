@@ -163,3 +163,119 @@ export async function getMyExcelCertificatesAction() {
         return true;
     });
 }
+
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW SERVER ACTIONS — paste all four functions at the end of
+// D:\csc-platform\src\app\actions\certificates.ts (no new file, no new imports:
+// they use that file's existing getAuthUser() and supabaseAdmin).
+//
+// 1. getAllCertificatesAction — list (was already delivered; kept unchanged).
+// 2. updateCertificateAction — edit a PDF certificate's record.
+// 3. updateExcelCertificateAction — edit an Excel-backed certificate's record.
+// 4. deleteCertificateAction — delete a certificate (main_admin only).
+//
+// ROLES: viewing and editing allow co_admin + main_admin (same as the upload
+// actions in this file). Deleting is main_admin-only, matching
+// adminDeletePostAction / adminDeleteAadharScanAction in admin.ts. The page
+// hides the Delete button for co_admin; the server check below is the real
+// enforcement, so a co_admin calling the action directly still gets rejected.
+//
+// WHY IT IS NEEDED:
+// None of the supplied actions can list every certificate. getMyCertificatesAction
+// returns only the logged-in user's own certificates, and
+// getMyExcelCertificatesAction returns only Excel rows matching the logged-in
+// user's own email/mobile — an admin opening the certificates page with those
+// would see almost nothing. This action fetches both tables (PDF certificates
+// and Excel-backed certificates), newest first, for the admin list.
+//
+// ACCESS: throws "Unauthorized" when there is no login or the role is "user",
+// so co_admin and main_admin can view. That matches uploadAndIssueCertificateAction
+// and uploadBulkExcelAction in the same file. NOTE: issueCertificateAction in the
+// same file is stricter — it also throws for co_admin, so only main_admin can
+// issue. If viewing should also be main_admin-only, change the check below to
+// `if (!user || user.role !== "main_admin")`.
+//
+// RETURNS: { pdf, excel } — pdf rows are the certificates table with the
+// student's mobile joined (same select as verifyCertificateAction uses:
+// "*, users(mobile)"); excel rows are the excel_certificates table as stored.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getAllCertificatesAction() {
+  const user = await getAuthUser();
+  if (!user || user.role === "user") throw new Error("Unauthorized");
+
+  const [pdfRes, excelRes] = await Promise.all([
+    supabaseAdmin
+      .from("certificates")
+      .select("*, users(mobile)")
+      .order("created_at", { ascending: false }),
+    supabaseAdmin
+      .from("excel_certificates")
+      .select("*")
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (pdfRes.error) throw new Error(pdfRes.error.message);
+  if (excelRes.error) throw new Error(excelRes.error.message);
+
+  return { pdf: pdfRes.data || [], excel: excelRes.data || [] };
+}
+
+// 7. Update a PDF certificate's record (Admin only: co_admin + main_admin)
+// NOTE: this updates the database row only. The stored PDF file itself is
+// unchanged — to change what the PDF says, re-issue it from the admin panel.
+export async function updateCertificateAction(
+  id: string,
+  patch: { certificate_number: string; student_name: string; course_name: string }
+) {
+  const user = await getAuthUser();
+  if (!user || user.role === "user") throw new Error("Unauthorized");
+  if (!patch.certificate_number?.trim() || !patch.student_name?.trim() || !patch.course_name?.trim()) {
+    throw new Error("Certificate number, student name and course are required");
+  }
+
+  const { error } = await supabaseAdmin.from("certificates").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+// 8. Update an Excel-backed certificate's record (Admin only: co_admin + main_admin)
+export async function updateExcelCertificateAction(
+  id: string,
+  patch: {
+    roll_no: string;
+    student_name: string;
+    father_name?: string | null;
+    mother_name?: string | null;
+    course_name: string;
+    grade?: string | null;
+    email?: string | null;
+    mobile?: string | null;
+  }
+) {
+  const user = await getAuthUser();
+  if (!user || user.role === "user") throw new Error("Unauthorized");
+  if (!patch.roll_no?.trim() || !patch.student_name?.trim() || !patch.course_name?.trim()) {
+    throw new Error("Roll no., student name and course are required");
+  }
+
+  const { error } = await supabaseAdmin.from("excel_certificates").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}
+
+// 9. Delete a certificate (Main Admin only)
+export async function deleteCertificateAction(id: string, kind: "pdf" | "excel") {
+  const user = await getAuthUser();
+  if (!user || user.role !== "main_admin") {
+    throw new Error("Only Main Admin can delete certificates");
+  }
+
+  const table = kind === "pdf" ? "certificates" : "excel_certificates";
+  const { error } = await supabaseAdmin.from(table).delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { success: true };
+}

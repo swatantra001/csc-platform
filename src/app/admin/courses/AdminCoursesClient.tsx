@@ -1,9 +1,10 @@
+
 // "use client";
 
 // import { useEffect, useState } from "react";
 // import Link from "next/link";
 // import { useRouter } from "next/navigation";
-// import { adminDeleteCourseAction } from "@/app/actions/courses";
+// import { adminDeleteCourseAction, markAdmissionCompleteAction, revokeBookingAction } from "@/app/actions/courses";
 // import { useAuth } from "@/components/AuthProvider";
 
 // const THEME_MAP: Record<string, { primary: string; dark: string; light: string; accent: string }> = {
@@ -29,9 +30,14 @@
 //     btnPrimary: "linear-gradient(135deg,#2563eb,#1d4ed8)", btnPrimaryText: "#ffffff",
 //     btnGhostBg: "#f1f5f9", btnGhostBorder: "#e2e8f0", btnGhostText: "#475569",
 //     btnDangerBg: "#fef2f2", btnDangerBorder: "#fecaca", btnDangerText: "#dc2626",
+//     btnSuccessBg: "linear-gradient(135deg,#15803d,#16a34a)", btnSuccessText: "#ffffff",
+//     btnWarningBg: "linear-gradient(135deg,#b45309,#d97706)", btnWarningText: "#ffffff",
 //     modalOverlay: "rgba(15,23,42,0.55)", scrollThumb: "#bfdbfe",
 //     toggleIcon: "🌙", toggleLabel: "Dark",
-// 	pillBorder: "rgba(0,0,0,0.1)", pillBg: "rgba(255,255,255,0.9)", pillText: "#475569",
+//     pillBorder: "rgba(0,0,0,0.1)", pillBg: "rgba(255,255,255,0.9)", pillText: "#475569",
+//     validBg: "#f0fdf4", validBorder: "#86efac", validText: "#15803d",
+//     invalidBg: "#fef2f2", invalidBorder: "#fecaca", invalidText: "#dc2626",
+//     tableHeaderBg: "#f8fafc", tableRowHover: "#f1f5f9",
 //   },
 //   dark: {
 //     pageBg: "#060b14", navBg: "rgba(6,11,20,0.98)", navBottomBorder: "#f59e0b",
@@ -44,9 +50,14 @@
 //     btnPrimary: "linear-gradient(135deg,#f59e0b,#d97706)", btnPrimaryText: "#000000",
 //     btnGhostBg: "rgba(255,255,255,0.05)", btnGhostBorder: "rgba(255,255,255,0.1)", btnGhostText: "rgba(255,255,255,0.7)",
 //     btnDangerBg: "rgba(239,68,68,0.1)", btnDangerBorder: "rgba(239,68,68,0.25)", btnDangerText: "#f87171",
+//     btnSuccessBg: "linear-gradient(135deg,#10b981,#059669)", btnSuccessText: "#ffffff",
+//     btnWarningBg: "linear-gradient(135deg,#92400e,#b45309)", btnWarningText: "#ffffff",
 //     modalOverlay: "rgba(0,0,0,0.85)", scrollThumb: "rgba(245,158,11,0.3)",
 //     toggleIcon: "☀️", toggleLabel: "Light",
-// 	pillBorder: "rgba(255,255,255,0.2)", pillBg: "rgba(255,255,255,0.05)", pillText: "rgba(255,255,255,0.7)",
+//     pillBorder: "rgba(255,255,255,0.2)", pillBg: "rgba(255,255,255,0.05)", pillText: "rgba(255,255,255,0.7)",
+//     validBg: "rgba(16,185,129,0.1)", validBorder: "rgba(16,185,129,0.3)", validText: "#34d399",
+//     invalidBg: "rgba(239,68,68,0.1)", invalidBorder: "rgba(239,68,68,0.3)", invalidText: "#f87171",
+//     tableHeaderBg: "rgba(255,255,255,0.03)", tableRowHover: "rgba(255,255,255,0.05)",
 //   },
 // } as const;
 
@@ -54,6 +65,7 @@
 //   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin" : "http://localhost:3000/admin", icon: "👮", label: "Admin" },
 //   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/posts" : "http://localhost:3000/admin/posts", icon: "✏️", label: "Posts" },
 //   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/courses" : "http://localhost:3000/admin/courses", icon: "🎓", label: "Courses" },
+//   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/verify" : "http://localhost:3000/admin/verify", icon: "🔍", label: "Verify" },
 //   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/galary" : "http://localhost:3000/admin/galary", icon: "🖼️", label: "Gallery" },
 //   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/forms" : "http://localhost:3000/admin/forms", icon: "📋", label: "Forms" },
 //   { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/transactions" : "http://localhost:3000/admin/transactions", icon: "💳", label: "Transactions" },
@@ -70,6 +82,7 @@
 // ::-webkit-scrollbar-thumb{background:${T.scrollThumb};border-radius:4px;}
 // .serif{font-family:'DM Serif Display',serif;}
 // @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+// @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
 // .top-nav-link{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;color:${T.navText};cursor:pointer;transition:all .15s;text-decoration:none;border:1px solid transparent;white-space:nowrap;}
 // .top-nav-link:hover{background:rgba(255,255,255,0.12);color:${T.navTextHover};}
 // .card{background:${T.cardBg};border:1px solid ${T.cardBorder};border-radius:12px;overflow:hidden;box-shadow:${T.cardShadow};}
@@ -81,7 +94,23 @@
 // .btn-g{background:${T.btnGhostBg};color:${T.btnGhostText};border:1px solid ${T.btnGhostBorder};}
 // .btn-g:hover{border-color:${T.accentBorder};color:${T.accent};}
 // .btn-d{background:${T.btnDangerBg};color:${T.btnDangerText};border:1px solid ${T.btnDangerBorder};}
+// .btn-s{background:${T.btnSuccessBg};color:${T.btnSuccessText};}
+// .btn-s:hover{filter:brightness(1.08);}
+// .btn-w{background:${T.btnWarningBg};color:${T.btnWarningText};}
 // .tog{display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:20px;border:1.5px solid ${T.accentBorder};background:rgba(255,255,255,0.08);color:${T.navText};font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;}
+// .modal-overlay{position:fixed;inset:0;background:${T.modalOverlay};z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.2s ease;}
+// .modal-box{background:${T.cardBg};border:1px solid ${T.cardBorder};border-radius:16px;box-shadow:${T.cardShadow};width:100%;max-width:900px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;animation:fadeIn 0.3s ease;}
+// .detail-drawer{position:fixed;top:0;right:0;width:100%;max-width:480px;height:100vh;background:${T.cardBg};border-left:1px solid ${T.cardBorder};box-shadow:-8px 0 32px rgba(0,0,0,0.2);z-index:250;overflow-y:auto;animation:slideIn 0.3s ease;}
+// .table-container{overflow:auto;max-height:60vh;}
+// table{width:100%;border-collapse:collapse;font-size:13px;}
+// th{background:${T.tableHeaderBg};padding:12px 16px;text-align:left;font-weight:700;color:${T.textSecondary};font-size:11px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid ${T.divider};white-space:nowrap;}
+// td{padding:12px 16px;border-bottom:1px solid ${T.divider};color:${T.textPrimary};white-space:nowrap;}
+// tr:hover td{background:${T.tableRowHover};cursor:pointer;}
+// .status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;}
+// .status-paid{background:${T.validBg};color:${T.validText};border:1px solid ${T.validBorder};}
+// .status-pending{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+// .status-cancelled{background:${T.invalidBg};color:${T.invalidText};border:1px solid ${T.invalidBorder};}
+// .status-admitted{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
 // `;
 // }
 
@@ -91,21 +120,49 @@
 //   catch { return d; }
 // }
 
+// function formatDateTime(d: string) {
+//   if (!d) return "";
+//   try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
+//   catch { return d; }
+// }
+
+// interface Booking {
+//   id: string;
+//   booking_code: string;
+//   payment_status: string;
+//   admission_status?: string | null;
+//   amount_paid: number;
+//   created_at: string;
+//   expires_at: string | null;
+//   user_id: string;
+//   users: {
+//     name: string | null;
+//     email: string | null;
+//     mobile: string | null;
+//   } | null;
+// }
+
 // export default function AdminCoursesClient({ initialCourses }: { initialCourses: any[] }) {
 //   const [isDark, setIsDark] = useState(false);
 //   const [courses, setCourses] = useState(initialCourses);
 //   const [deletingId, setDeletingId] = useState<string | null>(null);
 //   const [search, setSearch] = useState("");
+//   const [activeModalCourse, setActiveModalCourse] = useState<any | null>(null);
+//   const [bookings, setBookings] = useState<Booking[]>([]);
+//   const [bookingsLoading, setBookingsLoading] = useState(false);
+//   const [statusFilter, setStatusFilter] = useState<string>("all");
+//   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+//   const [actionLoading, setActionLoading] = useState<string | null>(null);
 //   const router = useRouter();
 //   const { user } = useAuth();
+
+//   const T = isDark ? THEMES.dark : THEMES.light;
 
 //   useEffect(() => {
 //     const saved = localStorage.getItem("csc_theme");
 //     if (saved) setIsDark(saved === "dark");
 //     else setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
 //   }, [user]);
-
-//   const T = isDark ? THEMES.dark : THEMES.light;
 
 //   const toggleTheme = () => {
 //     const newDark = !isDark;
@@ -123,12 +180,220 @@
 //     finally { setDeletingId(null); }
 //   };
 
+//   const openStudentsModal = async (course: any) => {
+//     setActiveModalCourse(course);
+//     setBookingsLoading(true);
+//     setStatusFilter("all");
+//     try {
+//       const { data, error } = await fetch(`/api/admin/courses/${course.id}/bookings`).then(r => r.json());
+//       if (error) throw new Error(error);
+//       setBookings(data || []);
+//     } catch {
+//       // Fallback: empty state
+//       setBookings([]);
+//     } finally {
+//       setBookingsLoading(false);
+//     }
+//   };
+
+//   const closeModal = () => {
+//     setActiveModalCourse(null);
+//     setBookings([]);
+//     setSelectedBooking(null);
+//     setStatusFilter("all");
+//   };
+
+//   const filteredBookings = statusFilter === "all" 
+//     ? bookings 
+//     : bookings.filter(b => b.payment_status === statusFilter);
+
+//   const handleRevoke = async (bookingId: string) => {
+//     if (!window.confirm("Are you sure? This will permanently remove the student from this course and free up their seat.")) return;
+//     setActionLoading(bookingId);
+//     try {
+//       await revokeBookingAction(bookingId);
+//       setBookings(prev => prev.filter(b => b.id !== bookingId));
+//       if (selectedBooking?.id === bookingId) setSelectedBooking(null);
+//       // Update seat count locally
+//       setCourses(prev => prev.map(c => 
+//         c.id === activeModalCourse?.id ? { ...c, filled_seats: Math.max(0, c.filled_seats - 1) } : c
+//       ));
+//     } catch (err: any) {
+//       alert(err.message || "Failed to revoke booking");
+//     } finally {
+//       setActionLoading(null);
+//     }
+//   };
+
+//   const handleMarkAdmitted = async (bookingId: string) => {
+//     setActionLoading(bookingId);
+//     try {
+//       await markAdmissionCompleteAction(bookingId);
+//       setBookings(prev => prev.map(b => 
+//         b.id === bookingId ? { ...b, admission_status: "completed" } : b
+//       ));
+//       if (selectedBooking?.id === bookingId) {
+//         setSelectedBooking(prev => prev ? { ...prev, admission_status: "completed" } : null);
+//       }
+//     } catch (err: any) {
+//       alert(err.message || "Failed to mark admission");
+//     } finally {
+//       setActionLoading(null);
+//     }
+//   };
+
 //   const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
 
 //   return (
 //     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: T.pageBg, color: T.textPrimary, fontFamily: "'DM Sans',sans-serif", transition: "background .25s, color .25s", paddingBottom: 60 }}>
 //       <style dangerouslySetInnerHTML={{ __html: buildCss(T as any) }} />
 
+//       {/* DETAIL DRAWER */}
+//       {selectedBooking && (
+//         <div className="detail-drawer" style={{ background: T.cardBg }}>
+//           <div style={{ padding: "24px", borderBottom: `1px solid ${T.divider}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+//             <div>
+//               <div className="mono" style={{ fontSize: 10, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Booking Details</div>
+//               <div style={{ fontSize: 18, fontWeight: 800, color: T.textPrimary }}>{selectedBooking.booking_code}</div>
+//             </div>
+//             <button onClick={() => setSelectedBooking(null)} className="btn btn-g" style={{ padding: "6px 12px" }}>✕</button>
+//           </div>
+          
+//           <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
+//             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 16, borderRadius: 12, background: selectedBooking.payment_status === "paid" ? T.validBg : T.invalidBg, border: `1px solid ${selectedBooking.payment_status === "paid" ? T.validBorder : T.invalidBorder}` }}>
+//               <div style={{ fontSize: 28 }}>{selectedBooking.payment_status === "paid" ? "✅" : "⚠️"}</div>
+//               <div>
+//                 <div style={{ fontSize: 14, fontWeight: 700, color: selectedBooking.payment_status === "paid" ? T.validText : T.invalidText }}>
+//                   {selectedBooking.payment_status === "paid" ? "Payment Verified" : "Payment " + selectedBooking.payment_status}
+//                 </div>
+//                 {selectedBooking.admission_status === "completed" && (
+//                   <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>🎓 Admission Completed</div>
+//                 )}
+//               </div>
+//             </div>
+
+//             <div style={{ display: "grid", gap: 14 }}>
+//               <DetailRow label="Student Name" value={selectedBooking.users?.name || "N/A"} T={T as any} />
+//               <DetailRow label="Mobile" value={selectedBooking.users?.mobile || "N/A"} T={T as any} />
+//               <DetailRow label="Email" value={selectedBooking.users?.email || "N/A"} T={T as any} />
+//               <DetailRow label="Amount Paid" value={`₹${selectedBooking.amount_paid.toLocaleString("en-IN")}`} T={T as any} highlight />
+//               <DetailRow label="Booked On" value={formatDateTime(selectedBooking.created_at)} T={T as any} />
+//               {selectedBooking.expires_at && (
+//                 <DetailRow label="Expires On" value={formatDateTime(selectedBooking.expires_at)} T={T as any} />
+//               )}
+//             </div>
+
+//             <div style={{ marginTop: "auto", paddingTop: 20, borderTop: `1px solid ${T.divider}`, display: "flex", flexDirection: "column", gap: 10 }}>
+//               {selectedBooking.payment_status === "paid" && selectedBooking.admission_status !== "completed" && (
+//                 <button 
+//                   onClick={() => handleMarkAdmitted(selectedBooking.id)} 
+//                   disabled={actionLoading === selectedBooking.id}
+//                   className="btn btn-s"
+//                   style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 14 }}
+//                 >
+//                   {actionLoading === selectedBooking.id ? "Processing..." : "✅ Mark Admission Complete"}
+//                 </button>
+//               )}
+//               <button 
+//                 onClick={() => handleRevoke(selectedBooking.id)} 
+//                 disabled={actionLoading === selectedBooking.id}
+//                 className="btn btn-d"
+//                 style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 14 }}
+//               >
+//                 {actionLoading === selectedBooking.id ? "Processing..." : "🗑️ Revoke Course from Student"}
+//               </button>
+//               <p style={{ fontSize: 11, color: T.textMuted, textAlign: "center", lineHeight: 1.5 }}>
+//                 Revoking will delete this booking, refund the seat, and remove the student from this course permanently.
+//               </p>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* STUDENTS MODAL */}
+//       {activeModalCourse && (
+//         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+//           <div className="modal-box">
+//             <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.divider}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+//               <div>
+//                 <div style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, marginBottom: 2 }}>{activeModalCourse.title}</div>
+//                 <div style={{ fontSize: 18, fontWeight: 800, color: T.textPrimary }}>👨‍🎓 Students ({filteredBookings.length})</div>
+//               </div>
+//               <button onClick={closeModal} className="btn btn-g" style={{ padding: "6px 12px" }}>✕ Close</button>
+//             </div>
+
+//             {/* Filter Pills */}
+//             <div style={{ padding: "12px 24px", borderBottom: `1px solid ${T.divider}`, display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
+//               {["all", "paid", "pending", "cancelled"].map(status => (
+//                 <button 
+//                   key={status}
+//                   onClick={() => setStatusFilter(status)}
+//                   className={`pill ${statusFilter === status ? "on" : ""}`}
+//                 >
+//                   {status === "all" ? "All" : status}
+//                   {status !== "all" && (
+//                     <span style={{ marginLeft: 4, opacity: 0.7 }}>
+//                       ({bookings.filter(b => b.payment_status === status).length})
+//                     </span>
+//                   )}
+//                 </button>
+//               ))}
+//             </div>
+
+//             <div className="table-container" style={{ flex: 1 }}>
+//               {bookingsLoading ? (
+//                 <div style={{ padding: 60, textAlign: "center", color: T.textMuted }}>
+//                   <div style={{ width: 32, height: 32, border: `3px solid ${T.divider}`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+//                   Loading students...
+//                 </div>
+//               ) : filteredBookings.length === 0 ? (
+//                 <div style={{ padding: 60, textAlign: "center", color: T.textMuted }}>
+//                   <div style={{ fontSize: 40, marginBottom: 12 }}>🎓</div>
+//                   <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, marginBottom: 4 }}>No students found</div>
+//                   <div style={{ fontSize: 13 }}>{statusFilter === "all" ? "No bookings for this course yet." : `No ${statusFilter} bookings.`}</div>
+//                 </div>
+//               ) : (
+//                 <table>
+//                   <thead>
+//                     <tr>
+//                       <th>Booking Code</th>
+//                       <th>Student</th>
+//                       <th>Mobile</th>
+//                       <th>Amount</th>
+//                       <th>Status</th>
+//                       <th>Date</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody>
+//                     {filteredBookings.map(booking => (
+//                       <tr key={booking.id} onClick={() => setSelectedBooking(booking)}>
+//                         <td>
+//                           <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.accent, background: T.accentLight, padding: "2px 8px", borderRadius: 6 }}>
+//                             {booking.booking_code}
+//                           </span>
+//                         </td>
+//                         <td style={{ fontWeight: 600 }}>{booking.users?.name || "N/A"}</td>
+//                         <td className="mono" style={{ fontSize: 12 }}>{booking.users?.mobile || "N/A"}</td>
+//                         <td style={{ fontWeight: 700 }}>₹{booking.amount_paid.toLocaleString("en-IN")}</td>
+//                         <td>
+//                           <span className={`status-badge status-${booking.payment_status}`}>
+//                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", display: "inline-block" }} />
+//                             {booking.payment_status}
+//                             {booking.admission_status === "completed" && " 🎓"}
+//                           </span>
+//                         </td>
+//                         <td style={{ fontSize: 12, color: T.textMuted }}>{formatDate(booking.created_at)}</td>
+//                       </tr>
+//                     ))}
+//                   </tbody>
+//                 </table>
+//               )}
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* HEADER */}
 //       <header style={{ background: T.navBg, borderBottom: `3px solid ${T.navBottomBorder}`, flexShrink: 0, zIndex: 100, boxShadow: "0 2px 16px rgba(0,0,0,0.18)" }}>
 //         <div style={{ display: "flex", alignItems: "center", height: 54, padding: "0 20px", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
 //           <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
@@ -230,9 +495,14 @@
 //                   <div style={{ width: `${seatPercent}%`, height: "100%", background: seatPercent > 80 ? "#dc2626" : T.accent, borderRadius: 6, transition: "width 0.5s" }} />
 //                 </div>
 
-//                 <div style={{ borderTop: `1px solid ${T.divider}`, paddingTop: 16, marginTop: "auto", display: "flex", gap: 12 }}>
-//                   <button onClick={() => router.push(`/admin/courses/create?id=${course.id}`)} className="btn btn-g" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10 }}>✏️ Edit</button>
-//                   <button onClick={() => handleDelete(course.id, course.title)} disabled={deletingId === course.id} className="btn btn-d" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10 }}>
+//                 <div style={{ borderTop: `1px solid ${T.divider}`, paddingTop: 16, marginTop: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+//                   <button onClick={() => openStudentsModal(course)} className="btn btn-p" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10, fontSize: 12 }}>
+//                     👨‍🎓 Students
+//                   </button>
+//                   <button onClick={() => router.push(`/admin/courses/create?id=${course.id}`)} className="btn btn-g" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10, fontSize: 12 }}>
+//                     ✏️ Edit
+//                   </button>
+//                   <button onClick={() => handleDelete(course.id, course.title)} disabled={deletingId === course.id} className="btn btn-d" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10, fontSize: 12 }}>
 //                     {deletingId === course.id ? "⏳..." : "🗑️ Delete"}
 //                   </button>
 //                 </div>
@@ -253,6 +523,16 @@
 //   );
 // }
 
+// function DetailRow({ label, value, highlight, T }: { label: string; value: string; highlight?: boolean; T: typeof THEMES.light }) {
+//   return (
+//     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+//       <span style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}>{label}</span>
+//       <span style={{ fontSize: 13, color: highlight ? T.accent : T.textPrimary, fontWeight: highlight ? 700 : 600, textAlign: "right", wordBreak: "break-word", maxWidth: "60%" }}>
+//         {value}
+//       </span>
+//     </div>
+//   );
+// }
 
 
 
@@ -264,18 +544,109 @@
 
 
 
-
-
-
-
-
+// src/app/admin/courses/AdminCoursesClient.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// REWRITTEN per the Jan Seva Kendra standing brief (~/workspace/jan-seva-kendra/CONTEXT.md).
+// Drop-in replacement for D:\csc-platform\src\app\admin\courses\AdminCoursesClient.tsx.
+// No new file needed.
+//
+// KEPT (all logic exactly as supplied):
+// - Props { initialCourses }.
+// - THEME_MAP (8 course themes) — kept as solid per-course colours for the
+//   banner fallback and the category chip area; a course's theme colour is
+//   used only where it identifies that course.
+// - formatDate / formatDateTime (en-IN, "02 Nov 2026" / with time).
+// - Booking interface (booking_code, payment_status, admission_status,
+//   amount_paid, created_at, expires_at, user_id, users { name, email, mobile }).
+// - Theme handling: localStorage "csc_theme", then prefers-color-scheme,
+//   toggleTheme writes "csc_theme"; dark-class sync effect on
+//   document.documentElement (needs darkMode: "class" in tailwind.config.js).
+// - handleDelete: window.confirm, adminDeleteCourseAction, remove from list,
+//   alert("Failed to delete course.") on error.
+// - Students modal: fetch `/api/admin/courses/${course.id}/bookings`, then
+//   r.json(); if error throw, setBookings(data || []); catch falls back to
+//   an empty list. Filter pills all / paid / pending / cancelled with counts.
+//   Row click opens the booking detail drawer.
+// - handleRevoke: window.confirm, revokeBookingAction, remove booking from
+//   the list, clear the drawer if it showed that booking, decrement
+//   filled_seats locally (Math.max(0, -1)).
+// - handleMarkAdmitted: markAdmissionCompleteAction, sets admission_status
+//   to "completed" in the list and in the drawer.
+// - Course search filters on title only (case-insensitive), as supplied.
+// - Seat occupancy bar: solid blue, red only when more than 80% full;
+//   LIVE / DRAFT badge; Edit -> /admin/courses/create?id=${course.id};
+//   Create -> /admin/courses/create; DetailRow helper.
+// - All user-visible copy as supplied.
+//
+// REMOVED:
+// - The whole THEMES object and buildCss() (Google Fonts @import for
+//   DM Serif Display / DM Sans + global * margin/padding reset); every
+//   inline style object and <style> block; all gradients (hero, banner
+//   fallback, logo tile, primary/success/warning buttons); the dot-pattern
+//   overlay on the hero; hover lift done with inline onMouseEnter/
+//   onMouseLeave handlers.
+// - One accent in both themes (deep blue) via Tailwind dark: classes; the
+//   old blue-light / amber-dark switch is gone. Course-theme colours stay
+//   only where they identify a course (banner fallback).
+// - Every emoji used as an icon (nav icons, search, clock, calendar,
+//   students, edit, delete, paid/pending badges, spinner) -> lucide-react.
+// - NODE_ENV production/localhost absolute NAV_LINKS — all links are now
+//   relative (/admin, /admin/posts, /admin/courses, /admin/verify,
+//   /admin/galary, /admin/forms, /admin/transactions, /admin/analytics).
+//
+// FLAGS (kept as supplied, not changed — need Swatantra's word):
+// 1. The Students modal fetch has no response.ok check: a non-2xx response
+//    still goes through r.json(), and any failure silently falls back to an
+//    empty list, so a real server error looks like "no students".
+// 2. The booking detail drawer has no overlay/backdrop — it slides in over
+//    the page but clicking outside it does nothing; only the close button
+//    dismisses it. (The Students modal does close on overlay click.)
+// 3. The theme effect re-runs on every `user` change ([user] dependency,
+//    kept as supplied) instead of once on mount.
+// 4. The original "mono" class on the booking-code chip had no CSS rule
+//    defining it (buildCss defined no .mono class); it now uses font-mono.
+// 5. seatPercent is NaN when max_seats is 0 (division by zero), so the bar
+//    width is invalid for a course with 0 seats — kept as supplied.
+// 6. Opening the Students modal for another course does not clear a
+//    previously opened booking drawer; only closeModal does.
+// 7. Search matches the course title only, not the category — as supplied.
+// ─────────────────────────────────────────────────────────────────────────────
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { adminDeleteCourseAction, markAdmissionCompleteAction, revokeBookingAction } from "@/app/actions/courses";
+import {
+  adminDeleteCourseAction,
+  markAdmissionCompleteAction,
+  revokeBookingAction,
+} from "@/app/actions/courses";
 import { useAuth } from "@/components/AuthProvider";
+import {
+  AlertTriangle,
+  Award,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  CreditCard,
+  GraduationCap,
+  Image as ImageIcon,
+  Landmark,
+  Loader2,
+  Moon,
+  PenLine,
+  Plus,
+  Search,
+  SearchCheck,
+  ShieldCheck,
+  Sun,
+  Trash2,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 const THEME_MAP: Record<string, { primary: string; dark: string; light: string; accent: string }> = {
   blue: { primary: "#1d4ed8", dark: "#1e3a8a", light: "#eff6ff", accent: "#3b82f6" },
@@ -288,101 +659,17 @@ const THEME_MAP: Record<string, { primary: string; dark: string; light: string; 
   rose: { primary: "#be123c", dark: "#881337", light: "#fff1f2", accent: "#f43f5e" },
 };
 
-const THEMES = {
-  light: {
-    pageBg: "#f1f5f9", navBg: "#1e3a8a", navBottomBorder: "#3b82f6",
-    navText: "rgba(255,255,255,0.65)", navTextHover: "#ffffff",
-    navBrand: "#ffffff", navBrandAccent: "#93c5fd",
-    cardBg: "#ffffff", cardBorder: "#e2e8f0", cardShadow: "0 1px 4px rgba(0,0,0,0.07)",
-    textPrimary: "#1e293b", textSecondary: "#475569", textMuted: "#94a3b8",
-    accent: "#2563eb", accentHover: "#1d4ed8", accentLight: "#eff6ff", accentBorder: "#bfdbfe",
-    inputBg: "#f8fafc", inputBorder: "#e2e8f0", divider: "#e2e8f0",
-    btnPrimary: "linear-gradient(135deg,#2563eb,#1d4ed8)", btnPrimaryText: "#ffffff",
-    btnGhostBg: "#f1f5f9", btnGhostBorder: "#e2e8f0", btnGhostText: "#475569",
-    btnDangerBg: "#fef2f2", btnDangerBorder: "#fecaca", btnDangerText: "#dc2626",
-    btnSuccessBg: "linear-gradient(135deg,#15803d,#16a34a)", btnSuccessText: "#ffffff",
-    btnWarningBg: "linear-gradient(135deg,#b45309,#d97706)", btnWarningText: "#ffffff",
-    modalOverlay: "rgba(15,23,42,0.55)", scrollThumb: "#bfdbfe",
-    toggleIcon: "🌙", toggleLabel: "Dark",
-    pillBorder: "rgba(0,0,0,0.1)", pillBg: "rgba(255,255,255,0.9)", pillText: "#475569",
-    validBg: "#f0fdf4", validBorder: "#86efac", validText: "#15803d",
-    invalidBg: "#fef2f2", invalidBorder: "#fecaca", invalidText: "#dc2626",
-    tableHeaderBg: "#f8fafc", tableRowHover: "#f1f5f9",
-  },
-  dark: {
-    pageBg: "#060b14", navBg: "rgba(6,11,20,0.98)", navBottomBorder: "#f59e0b",
-    navText: "rgba(255,255,255,0.45)", navTextHover: "#ffffff",
-    navBrand: "#ffffff", navBrandAccent: "#f59e0b",
-    cardBg: "rgba(255,255,255,0.03)", cardBorder: "rgba(255,255,255,0.08)", cardShadow: "0 1px 4px rgba(0,0,0,0.3)",
-    textPrimary: "#f1f5f9", textSecondary: "rgba(255,255,255,0.55)", textMuted: "rgba(255,255,255,0.28)",
-    accent: "#f59e0b", accentHover: "#d97706", accentLight: "rgba(245,158,11,0.08)", accentBorder: "rgba(245,158,11,0.25)",
-    inputBg: "rgba(255,255,255,0.05)", inputBorder: "rgba(255,255,255,0.08)", divider: "rgba(255,255,255,0.06)",
-    btnPrimary: "linear-gradient(135deg,#f59e0b,#d97706)", btnPrimaryText: "#000000",
-    btnGhostBg: "rgba(255,255,255,0.05)", btnGhostBorder: "rgba(255,255,255,0.1)", btnGhostText: "rgba(255,255,255,0.7)",
-    btnDangerBg: "rgba(239,68,68,0.1)", btnDangerBorder: "rgba(239,68,68,0.25)", btnDangerText: "#f87171",
-    btnSuccessBg: "linear-gradient(135deg,#10b981,#059669)", btnSuccessText: "#ffffff",
-    btnWarningBg: "linear-gradient(135deg,#92400e,#b45309)", btnWarningText: "#ffffff",
-    modalOverlay: "rgba(0,0,0,0.85)", scrollThumb: "rgba(245,158,11,0.3)",
-    toggleIcon: "☀️", toggleLabel: "Light",
-    pillBorder: "rgba(255,255,255,0.2)", pillBg: "rgba(255,255,255,0.05)", pillText: "rgba(255,255,255,0.7)",
-    validBg: "rgba(16,185,129,0.1)", validBorder: "rgba(16,185,129,0.3)", validText: "#34d399",
-    invalidBg: "rgba(239,68,68,0.1)", invalidBorder: "rgba(239,68,68,0.3)", invalidText: "#f87171",
-    tableHeaderBg: "rgba(255,255,255,0.03)", tableRowHover: "rgba(255,255,255,0.05)",
-  },
-} as const;
-
-const NAV_LINKS = [
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin" : "http://localhost:3000/admin", icon: "👮", label: "Admin" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/posts" : "http://localhost:3000/admin/posts", icon: "✏️", label: "Posts" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/courses" : "http://localhost:3000/admin/courses", icon: "🎓", label: "Courses" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/verify" : "http://localhost:3000/admin/verify", icon: "🔍", label: "Verify" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/galary" : "http://localhost:3000/admin/galary", icon: "🖼️", label: "Gallery" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/forms" : "http://localhost:3000/admin/forms", icon: "📋", label: "Forms" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/transactions" : "http://localhost:3000/admin/transactions", icon: "💳", label: "Transactions" },
-  { href: process.env.NODE_ENV === "production" ? "https://srilalsahaj.co.in/admin/analytics" : "http://localhost:3000/admin/analytics", icon: "📊", label: "Analytics" },
+const NAV_LINKS: { href: string; icon: LucideIcon; label: string }[] = [
+  { href: "/admin", icon: ShieldCheck, label: "Admin" },
+  { href: "/admin/certificates", icon: Award, label: "Certificates" },
+  { href: "/admin/posts", icon: PenLine, label: "Posts" },
+  { href: "/admin/courses", icon: GraduationCap, label: "Courses" },
+  { href: "/admin/verify", icon: SearchCheck, label: "Verify" },
+  { href: "/admin/galary", icon: ImageIcon, label: "Gallery" },
+  { href: "/admin/forms", icon: ClipboardList, label: "Forms" },
+  { href: "/admin/transactions", icon: CreditCard, label: "Transactions" },
+  { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
 ];
-
-function buildCss(T: typeof THEMES.light): string {
-  return `
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'DM Sans',sans-serif;}
-::-webkit-scrollbar{width:5px;height:5px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:${T.scrollThumb};border-radius:4px;}
-.serif{font-family:'DM Serif Display',serif;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
-.top-nav-link{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;color:${T.navText};cursor:pointer;transition:all .15s;text-decoration:none;border:1px solid transparent;white-space:nowrap;}
-.top-nav-link:hover{background:rgba(255,255,255,0.12);color:${T.navTextHover};}
-.card{background:${T.cardBg};border:1px solid ${T.cardBorder};border-radius:12px;overflow:hidden;box-shadow:${T.cardShadow};}
-.pill{padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .15s;border:1px solid ${T.pillBorder};background:${T.pillBg};color:${T.pillText};text-transform:uppercase;}
-.pill.on{background:${T.accentLight};border-color:${T.accentBorder};color:${T.accent};}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:none;font-family:'DM Sans',sans-serif;}
-.btn-p{background:${T.btnPrimary};color:${T.btnPrimaryText};}
-.btn-p:hover{filter:brightness(1.08);transform:translateY(-1px);}
-.btn-g{background:${T.btnGhostBg};color:${T.btnGhostText};border:1px solid ${T.btnGhostBorder};}
-.btn-g:hover{border-color:${T.accentBorder};color:${T.accent};}
-.btn-d{background:${T.btnDangerBg};color:${T.btnDangerText};border:1px solid ${T.btnDangerBorder};}
-.btn-s{background:${T.btnSuccessBg};color:${T.btnSuccessText};}
-.btn-s:hover{filter:brightness(1.08);}
-.btn-w{background:${T.btnWarningBg};color:${T.btnWarningText};}
-.tog{display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:20px;border:1.5px solid ${T.accentBorder};background:rgba(255,255,255,0.08);color:${T.navText};font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;}
-.modal-overlay{position:fixed;inset:0;background:${T.modalOverlay};z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.2s ease;}
-.modal-box{background:${T.cardBg};border:1px solid ${T.cardBorder};border-radius:16px;box-shadow:${T.cardShadow};width:100%;max-width:900px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;animation:fadeIn 0.3s ease;}
-.detail-drawer{position:fixed;top:0;right:0;width:100%;max-width:480px;height:100vh;background:${T.cardBg};border-left:1px solid ${T.cardBorder};box-shadow:-8px 0 32px rgba(0,0,0,0.2);z-index:250;overflow-y:auto;animation:slideIn 0.3s ease;}
-.table-container{overflow:auto;max-height:60vh;}
-table{width:100%;border-collapse:collapse;font-size:13px;}
-th{background:${T.tableHeaderBg};padding:12px 16px;text-align:left;font-weight:700;color:${T.textSecondary};font-size:11px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid ${T.divider};white-space:nowrap;}
-td{padding:12px 16px;border-bottom:1px solid ${T.divider};color:${T.textPrimary};white-space:nowrap;}
-tr:hover td{background:${T.tableRowHover};cursor:pointer;}
-.status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;}
-.status-paid{background:${T.validBg};color:${T.validText};border:1px solid ${T.validBorder};}
-.status-pending{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
-.status-cancelled{background:${T.invalidBg};color:${T.invalidText};border:1px solid ${T.invalidBorder};}
-.status-admitted{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;}
-`;
-}
 
 function formatDate(d: string) {
   if (!d) return "";
@@ -426,13 +713,19 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
   const router = useRouter();
   const { user } = useAuth();
 
-  const T = isDark ? THEMES.dark : THEMES.light;
-
   useEffect(() => {
     const saved = localStorage.getItem("csc_theme");
     if (saved) setIsDark(saved === "dark");
-    else setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
+    else {
+      setIsDark(false);
+      localStorage.setItem("csc_theme", "light");
+    }
   }, [user]);
+
+  // Sync the dark class on <html> so Tailwind dark: variants work.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
 
   const toggleTheme = () => {
     const newDark = !isDark;
@@ -473,8 +766,8 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
     setStatusFilter("all");
   };
 
-  const filteredBookings = statusFilter === "all" 
-    ? bookings 
+  const filteredBookings = statusFilter === "all"
+    ? bookings
     : bookings.filter(b => b.payment_status === statusFilter);
 
   const handleRevoke = async (bookingId: string) => {
@@ -485,7 +778,7 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
       setBookings(prev => prev.filter(b => b.id !== bookingId));
       if (selectedBooking?.id === bookingId) setSelectedBooking(null);
       // Update seat count locally
-      setCourses(prev => prev.map(c => 
+      setCourses(prev => prev.map(c =>
         c.id === activeModalCourse?.id ? { ...c, filled_seats: Math.max(0, c.filled_seats - 1) } : c
       ));
     } catch (err: any) {
@@ -499,7 +792,7 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
     setActionLoading(bookingId);
     try {
       await markAdmissionCompleteAction(bookingId);
-      setBookings(prev => prev.map(b => 
+      setBookings(prev => prev.map(b =>
         b.id === bookingId ? { ...b, admission_status: "completed" } : b
       ));
       if (selectedBooking?.id === bookingId) {
@@ -515,64 +808,78 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
   const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: T.pageBg, color: T.textPrimary, fontFamily: "'DM Sans',sans-serif", transition: "background .25s, color .25s", paddingBottom: 60 }}>
-      <style dangerouslySetInnerHTML={{ __html: buildCss(T as any) }} />
-
+    <div className="flex min-h-screen flex-col bg-[#f8fafc] pb-16 text-slate-900 dark:bg-[#0b1220] dark:text-slate-100">
       {/* DETAIL DRAWER */}
       {selectedBooking && (
-        <div className="detail-drawer" style={{ background: T.cardBg }}>
-          <div style={{ padding: "24px", borderBottom: `1px solid ${T.divider}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="fixed right-0 top-0 z-[250] h-screen w-full max-w-md overflow-y-auto border-l border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#111a2e]">
+          <div className="flex items-center justify-between border-b border-slate-200 p-6 dark:border-slate-800">
             <div>
-              <div className="mono" style={{ fontSize: 10, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Booking Details</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: T.textPrimary }}>{selectedBooking.booking_code}</div>
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500">Booking Details</div>
+              <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{selectedBooking.booking_code}</div>
             </div>
-            <button onClick={() => setSelectedBooking(null)} className="btn btn-g" style={{ padding: "6px 12px" }}>✕</button>
+            <button
+              onClick={() => setSelectedBooking(null)}
+              aria-label="Close booking details"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:text-blue-400"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          
-          <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 16, borderRadius: 12, background: selectedBooking.payment_status === "paid" ? T.validBg : T.invalidBg, border: `1px solid ${selectedBooking.payment_status === "paid" ? T.validBorder : T.invalidBorder}` }}>
-              <div style={{ fontSize: 28 }}>{selectedBooking.payment_status === "paid" ? "✅" : "⚠️"}</div>
+
+          <div className="flex flex-col gap-5 p-6">
+            <div className={`flex items-center gap-3 rounded-xl border p-4 ${selectedBooking.payment_status === "paid" ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/40" : "border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40"}`}>
+              {selectedBooking.payment_status === "paid"
+                ? <CheckCircle2 className="h-7 w-7 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                : <AlertTriangle className="h-7 w-7 shrink-0 text-red-600 dark:text-red-400" />}
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: selectedBooking.payment_status === "paid" ? T.validText : T.invalidText }}>
+                <div className={`text-sm font-bold ${selectedBooking.payment_status === "paid" ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}`}>
                   {selectedBooking.payment_status === "paid" ? "Payment Verified" : "Payment " + selectedBooking.payment_status}
                 </div>
                 {selectedBooking.admission_status === "completed" && (
-                  <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>🎓 Admission Completed</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <GraduationCap className="h-3.5 w-3.5" /> Admission Completed
+                  </div>
                 )}
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: 14 }}>
-              <DetailRow label="Student Name" value={selectedBooking.users?.name || "N/A"} T={T as any} />
-              <DetailRow label="Mobile" value={selectedBooking.users?.mobile || "N/A"} T={T as any} />
-              <DetailRow label="Email" value={selectedBooking.users?.email || "N/A"} T={T as any} />
-              <DetailRow label="Amount Paid" value={`₹${selectedBooking.amount_paid.toLocaleString("en-IN")}`} T={T as any} highlight />
-              <DetailRow label="Booked On" value={formatDateTime(selectedBooking.created_at)} T={T as any} />
+            <div className="grid gap-3.5">
+              <DetailRow label="Student Name" value={selectedBooking.users?.name || "N/A"} />
+              <DetailRow label="Mobile" value={selectedBooking.users?.mobile || "N/A"} />
+              <DetailRow label="Email" value={selectedBooking.users?.email || "N/A"} />
+              <DetailRow label="Amount Paid" value={`₹${selectedBooking.amount_paid.toLocaleString("en-IN")}`} highlight />
+              <DetailRow label="Booked On" value={formatDateTime(selectedBooking.created_at)} />
               {selectedBooking.expires_at && (
-                <DetailRow label="Expires On" value={formatDateTime(selectedBooking.expires_at)} T={T as any} />
+                <DetailRow label="Expires On" value={formatDateTime(selectedBooking.expires_at)} />
               )}
             </div>
 
-            <div style={{ marginTop: "auto", paddingTop: 20, borderTop: `1px solid ${T.divider}`, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="mt-auto flex flex-col gap-2.5 border-t border-slate-200 pt-5 dark:border-slate-800">
               {selectedBooking.payment_status === "paid" && selectedBooking.admission_status !== "completed" && (
-                <button 
-                  onClick={() => handleMarkAdmitted(selectedBooking.id)} 
+                <button
+                  onClick={() => handleMarkAdmitted(selectedBooking.id)}
                   disabled={actionLoading === selectedBooking.id}
-                  className="btn btn-s"
-                  style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 14 }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-700 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-800 disabled:opacity-60 dark:bg-green-600 dark:hover:bg-green-500"
                 >
-                  {actionLoading === selectedBooking.id ? "Processing..." : "✅ Mark Admission Complete"}
+                  {actionLoading === selectedBooking.id ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+                  ) : (
+                    <><CheckCircle2 className="h-4 w-4" /> Mark Admission Complete</>
+                  )}
                 </button>
               )}
-              <button 
-                onClick={() => handleRevoke(selectedBooking.id)} 
+              <button
+                onClick={() => handleRevoke(selectedBooking.id)}
                 disabled={actionLoading === selectedBooking.id}
-                className="btn btn-d"
-                style={{ width: "100%", justifyContent: "center", padding: 12, fontSize: 14 }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60"
               >
-                {actionLoading === selectedBooking.id ? "Processing..." : "🗑️ Revoke Course from Student"}
+                {actionLoading === selectedBooking.id ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+                ) : (
+                  <><Trash2 className="h-4 w-4" /> Revoke Course from Student</>
+                )}
               </button>
-              <p style={{ fontSize: 11, color: T.textMuted, textAlign: "center", lineHeight: 1.5 }}>
+              <p className="text-center text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
                 Revoking will delete this booking, refund the seat, and remove the student from this course permanently.
               </p>
             </div>
@@ -582,27 +889,35 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
 
       {/* STUDENTS MODAL */}
       {activeModalCourse && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
-          <div className="modal-box">
-            <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.divider}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/55 p-5" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+          <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-[#111a2e]">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-800">
               <div>
-                <div style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, marginBottom: 2 }}>{activeModalCourse.title}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: T.textPrimary }}>👨‍🎓 Students ({filteredBookings.length})</div>
+                <div className="mb-0.5 text-xs font-semibold text-slate-400 dark:text-slate-500">{activeModalCourse.title}</div>
+                <div className="flex items-center gap-2 text-lg font-extrabold text-slate-900 dark:text-slate-100">
+                  <GraduationCap className="h-5 w-5 text-blue-700 dark:text-blue-400" />
+                  Students ({filteredBookings.length})
+                </div>
               </div>
-              <button onClick={closeModal} className="btn btn-g" style={{ padding: "6px 12px" }}>✕ Close</button>
+              <button
+                onClick={closeModal}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:text-blue-400"
+              >
+                <X className="h-4 w-4" /> Close
+              </button>
             </div>
 
             {/* Filter Pills */}
-            <div style={{ padding: "12px 24px", borderBottom: `1px solid ${T.divider}`, display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
+            <div className="flex shrink-0 flex-wrap gap-2 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
               {["all", "paid", "pending", "cancelled"].map(status => (
-                <button 
+                <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
-                  className={`pill ${statusFilter === status ? "on" : ""}`}
+                  className={`rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors ${statusFilter === status ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-400" : "border-slate-200 bg-white text-slate-500 hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-transparent dark:text-slate-400 dark:hover:text-blue-400"}`}
                 >
                   {status === "all" ? "All" : status}
                   {status !== "all" && (
-                    <span style={{ marginLeft: 4, opacity: 0.7 }}>
+                    <span className="ml-1 opacity-70">
                       ({bookings.filter(b => b.payment_status === status).length})
                     </span>
                   )}
@@ -610,49 +925,53 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
               ))}
             </div>
 
-            <div className="table-container" style={{ flex: 1 }}>
+            <div className="max-h-[60vh] flex-1 overflow-auto">
               {bookingsLoading ? (
-                <div style={{ padding: 60, textAlign: "center", color: T.textMuted }}>
-                  <div style={{ width: 32, height: 32, border: `3px solid ${T.divider}`, borderTopColor: T.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+                <div className="p-16 text-center text-slate-400 dark:text-slate-500">
+                  <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-blue-700 dark:text-blue-400" />
                   Loading students...
                 </div>
               ) : filteredBookings.length === 0 ? (
-                <div style={{ padding: 60, textAlign: "center", color: T.textMuted }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>🎓</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, marginBottom: 4 }}>No students found</div>
-                  <div style={{ fontSize: 13 }}>{statusFilter === "all" ? "No bookings for this course yet." : `No ${statusFilter} bookings.`}</div>
+                <div className="p-16 text-center text-slate-400 dark:text-slate-500">
+                  <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/40">
+                    <GraduationCap className="h-7 w-7 text-blue-700 dark:text-blue-400" />
+                  </div>
+                  <div className="mb-1 text-base font-bold text-slate-900 dark:text-slate-100">No students found</div>
+                  <div className="text-[13px]">{statusFilter === "all" ? "No bookings for this course yet." : `No ${statusFilter} bookings.`}</div>
                 </div>
               ) : (
-                <table>
+                <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr>
-                      <th>Booking Code</th>
-                      <th>Student</th>
-                      <th>Mobile</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Date</th>
+                      <th className="border-b-2 border-slate-200 bg-slate-50 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400">Booking Code</th>
+                      <th className="border-b-2 border-slate-200 bg-slate-50 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400">Student</th>
+                      <th className="border-b-2 border-slate-200 bg-slate-50 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400">Mobile</th>
+                      <th className="border-b-2 border-slate-200 bg-slate-50 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400">Amount</th>
+                      <th className="border-b-2 border-slate-200 bg-slate-50 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400">Status</th>
+                      <th className="border-b-2 border-slate-200 bg-slate-50 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-white/5 dark:text-slate-400">Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredBookings.map(booking => (
-                      <tr key={booking.id} onClick={() => setSelectedBooking(booking)}>
-                        <td>
-                          <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: T.accent, background: T.accentLight, padding: "2px 8px", borderRadius: 6 }}>
+                      <tr key={booking.id} onClick={() => setSelectedBooking(booking)} className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-white/5">
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                          <span className="rounded-md bg-blue-50 px-2 py-0.5 font-mono text-xs font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-400">
                             {booking.booking_code}
                           </span>
                         </td>
-                        <td style={{ fontWeight: 600 }}>{booking.users?.name || "N/A"}</td>
-                        <td className="mono" style={{ fontSize: 12 }}>{booking.users?.mobile || "N/A"}</td>
-                        <td style={{ fontWeight: 700 }}>₹{booking.amount_paid.toLocaleString("en-IN")}</td>
-                        <td>
-                          <span className={`status-badge status-${booking.payment_status}`}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", display: "inline-block" }} />
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 font-semibold dark:border-slate-800">{booking.users?.name || "N/A"}</td>
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 font-mono text-xs dark:border-slate-800">{booking.users?.mobile || "N/A"}</td>
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 font-bold dark:border-slate-800">₹{booking.amount_paid.toLocaleString("en-IN")}</td>
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase ${booking.payment_status === "paid" ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-400" : booking.payment_status === "pending" ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-400" : booking.payment_status === "cancelled" ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-400" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-white/5 dark:text-slate-400"}`}>
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
                             {booking.payment_status}
-                            {booking.admission_status === "completed" && " 🎓"}
+                            {booking.admission_status === "completed" && (
+                              <GraduationCap className="h-3.5 w-3.5" aria-label="Admission completed" />
+                            )}
                           </span>
                         </td>
-                        <td style={{ fontSize: 12, color: T.textMuted }}>{formatDate(booking.created_at)}</td>
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">{formatDate(booking.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -664,116 +983,145 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
       )}
 
       {/* HEADER */}
-      <header style={{ background: T.navBg, borderBottom: `3px solid ${T.navBottomBorder}`, flexShrink: 0, zIndex: 100, boxShadow: "0 2px 16px rgba(0,0,0,0.18)" }}>
-        <div style={{ display: "flex", alignItems: "center", height: 54, padding: "0 20px", gap: 14, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", flexShrink: 0 }}>
-            <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${T.navBottomBorder},${T.accentHover})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>🏛️</div>
+      <header className="z-[100] shrink-0 border-b-[3px] border-blue-600 bg-[#0b2239] shadow-md dark:border-blue-500 dark:bg-[#081120]">
+        <div className="flex h-[54px] items-center gap-3.5 border-b border-white/10 px-5">
+          <a href="/" className="flex shrink-0 items-center gap-2.5 no-underline">
+            <div className="flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-blue-700 dark:bg-blue-600">
+              <Landmark className="h-[17px] w-[17px] text-white" />
+            </div>
             <div>
-              <div className="serif" style={{ fontSize: 17, color: T.navBrand, letterSpacing: "-0.3px", lineHeight: 1 }}>
-                Srilal<span style={{ color: T.navBrandAccent }}>CSC</span>
+              <div className="text-[17px] leading-none tracking-tight text-white">
+                Srilal<span className="text-blue-300 dark:text-blue-400">CSC</span>
               </div>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", letterSpacing: ".1em", fontFamily: "monospace" }}>ADMIN PANEL</div>
+              <div className="mt-0.5 font-mono text-[9px] tracking-[0.1em] text-white/35">ADMIN PANEL</div>
             </div>
           </a>
-          <div style={{ width: 1, height: 26, background: "rgba(255,255,255,0.12)", flexShrink: 0 }} />
-          <nav style={{ display: "flex", gap: 3, flex: 1, overflowX: "auto" }}>
+          <div className="h-[26px] w-px shrink-0 bg-white/10" />
+          <nav className="flex flex-1 gap-1 overflow-x-auto">
             {NAV_LINKS.map(l => (
-              <a key={l.href} href={l.href} className="top-nav-link" style={l.label === "Courses" ? { background: "rgba(255,255,255,0.12)", color: "#fff" } : {}}>
-                <span style={{ fontSize: 13 }}>{l.icon}</span> {l.label}
+              <a
+                key={l.href}
+                href={l.href}
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${l.label === "Courses" ? "bg-white/15 text-white" : "text-white/65 hover:bg-white/10 hover:text-white"}`}
+                aria-current={l.label === "Courses" ? "page" : undefined}
+              >
+                <l.icon className="h-[13px] w-[13px]" /> {l.label}
               </a>
             ))}
           </nav>
-          <button className="tog" onClick={toggleTheme}>
-            <span style={{ fontSize: 14 }}>{T.toggleIcon}</span> {T.toggleLabel}
+          <button
+            onClick={toggleTheme}
+            aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+            className="flex items-center gap-2 rounded-full border-[1.5px] border-blue-400/40 bg-white/10 px-3.5 py-1.5 !text-xs font-bold text-white/80 transition-colors hover:text-white"
+          >
+            {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            {isDark ? "Light" : "Dark"}
           </button>
         </div>
       </header>
 
       {/* Hero */}
-      <div style={{ background: isDark ? "linear-gradient(135deg,#0f172a,#1e293b)" : "linear-gradient(135deg,#1e3a8a,#2563eb)", padding: "60px 24px 80px", textAlign: "center", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px,transparent 1px)", backgroundSize: "24px 24px" }} />
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <h1 className="serif" style={{ color: "#fff", fontSize: "clamp(2rem,5vw,3rem)", marginBottom: 12, fontWeight: 700 }}>Manage Courses</h1>
-          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 17, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 }}>
-            Create and manage computer training courses, diploma programs, and certification batches.
-          </p>
-        </div>
+      <div className="bg-blue-800 px-6 py-14 text-center dark:bg-blue-950">
+        <h1 className="mb-3 text-3xl font-bold text-white sm:text-4xl">Manage Courses</h1>
+        <p className="mx-auto max-w-[600px] text-[17px] leading-relaxed text-white/85">
+          Create and manage computer training courses, diploma programs, and certification batches.
+        </p>
       </div>
 
       {/* Filter Bar */}
-      <div style={{ maxWidth: 1200, margin: "-36px auto 32px", padding: "0 16px", position: "relative", zIndex: 10 }}>
-        <div className="card" style={{ padding: "12px 16px", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ position: "relative", flex: 1, minWidth: 280, display: "flex", alignItems: "center", background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: 10, padding: "0 14px" }}>
-            <span style={{ color: T.textMuted, marginRight: 10 }}>🔍</span>
-            <input type="text" placeholder="Search courses..." value={search} onChange={e => setSearch(e.target.value)}
-              style={{ border: "none", background: "transparent", flex: 1, padding: "12px 0", color: T.textPrimary, outline: "none", fontSize: 14 }} />
-            {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer" }}>✕</button>}
+      <div className="relative z-10 mx-auto -mt-9 mb-8 w-full max-w-[1200px] px-4">
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-[#111a2e]">
+          <div className="flex min-w-[280px] flex-1 items-center rounded-lg border border-slate-200 bg-slate-50 px-3.5 dark:border-slate-700 dark:bg-white/5 focus-within:border-blue-300 focus-within:ring-1 focus-within:ring-blue-300 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-400">
+            <Search className="mr-2.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search courses..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="flex-1 border-none bg-transparent py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} aria-label="Clear search" className="cursor-pointer text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          <Link href="/admin/courses/create" className="btn btn-p" style={{ textDecoration: "none", padding: "12px 24px", borderRadius: 10, fontSize: 14 }}>
-            <span style={{ fontSize: 18 }}>+</span> Create Course
+          <Link href="/admin/courses/create" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-6 py-3 text-sm font-semibold text-white no-underline transition-colors hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500">
+            <Plus className="h-[18px] w-[18px]" /> Create Course
           </Link>
         </div>
       </div>
 
       {/* Grid */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 16px", display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))", gap: 24, flex: 1 }}>
+      <div className="mx-auto grid w-full max-w-[1200px] flex-1 grid-cols-1 gap-6 px-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map(course => {
           const t = THEME_MAP[course.theme] || THEME_MAP.blue;
-          const bgImage = course.banner_url ? `url(${course.banner_url})` : `linear-gradient(135deg,${t.dark} 0%,${t.primary} 50%,${t.accent} 100%)`;
           const seatPercent = Math.round((course.filled_seats / course.max_seats) * 100);
+          const seatsFull = seatPercent > 80;
 
           return (
-            <div key={course.id} className="card" style={{ borderRadius: 16, display: "flex", flexDirection: "column", transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", position: "relative" }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.boxShadow = isDark ? "0 20px 40px rgba(0,0,0,0.4)" : "0 20px 25px -5px rgba(0,0,0,0.1)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = T.cardShadow; }}>
-              
-              <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10, padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 800, backdropFilter: "blur(8px)", display: "flex", alignItems: "center", gap: 6, background: course.is_published ? "rgba(16,185,129,0.9)" : "rgba(100,116,139,0.9)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff", display: "inline-block" }} />
+            <div key={course.id} className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg dark:border-slate-800 dark:bg-[#111a2e]">
+
+              <div className={`absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-full border border-white/30 px-3 py-1 text-[11px] font-extrabold text-white ${course.is_published ? "bg-emerald-600/90" : "bg-slate-500/90"}`}>
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />
                 {course.is_published ? "LIVE" : "DRAFT"}
               </div>
 
-              <div style={{ height: 160, width: "100%", background: bgImage, backgroundSize: "cover", backgroundPosition: "center", position: "relative", display: "flex", alignItems: "flex-end", padding: 16 }}>
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0) 100%)" }} />
-                <span style={{ position: "relative", zIndex: 10, background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 20, textTransform: "uppercase" }}>
+              <div className="relative flex h-40 w-full items-end p-4">
+                {course.banner_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={course.banner_url} alt={course.title} className="absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <div className="absolute inset-0" style={{ backgroundColor: t.primary }} />
+                )}
+                <div className="absolute inset-0 bg-black/40" />
+                <span className="relative z-10 rounded-full border border-white/30 bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase text-white">
                   {course.category}
                 </span>
               </div>
 
-              <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>⏱️ {course.duration}</span>
-                  <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>🗓️ {formatDate(course.start_date)}</span>
+              <div className="flex flex-1 flex-col p-5">
+                <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-500">
+                  <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {course.duration}</span>
+                  <span className="flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> {formatDate(course.start_date)}</span>
                 </div>
-                <h3 style={{ fontSize: 17, fontWeight: 800, color: T.textPrimary, lineHeight: 1.4, marginBottom: 8 }}>{course.title}</h3>
-                
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-                  <div style={{ textAlign: "center", padding: 8, background: T.accentLight, borderRadius: 8, border: `1px solid ${T.accentBorder}` }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: T.accent }}>₹{course.fee}</div>
-                    <div style={{ fontSize: 9, color: T.textMuted, textTransform: "uppercase", fontWeight: 700 }}>Total Fee</div>
+                <h3 className="mb-3 text-[17px] font-extrabold leading-snug text-slate-900 dark:text-slate-100">{course.title}</h3>
+
+                <div className="mb-3 grid grid-cols-3 gap-2">
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-2 text-center dark:border-blue-900/50 dark:bg-blue-950/40">
+                    <div className="text-base font-extrabold text-blue-700 dark:text-blue-400">₹{course.fee}</div>
+                    <div className="text-[9px] font-bold uppercase text-slate-400 dark:text-slate-500">Total Fee</div>
                   </div>
-                  <div style={{ textAlign: "center", padding: 8, background: T.accentLight, borderRadius: 8, border: `1px solid ${T.accentBorder}` }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: T.accent }}>₹{course.prebook_amount}</div>
-                    <div style={{ fontSize: 9, color: T.textMuted, textTransform: "uppercase", fontWeight: 700 }}>Pre-Book</div>
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-2 text-center dark:border-blue-900/50 dark:bg-blue-950/40">
+                    <div className="text-base font-extrabold text-blue-700 dark:text-blue-400">₹{course.prebook_amount}</div>
+                    <div className="text-[9px] font-bold uppercase text-slate-400 dark:text-slate-500">Pre-Book</div>
                   </div>
-                  <div style={{ textAlign: "center", padding: 8, background: seatPercent > 80 ? "#fef2f2" : T.accentLight, borderRadius: 8, border: `1px solid ${seatPercent > 80 ? "#fecaca" : T.accentBorder}` }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: seatPercent > 80 ? "#dc2626" : T.accent }}>{course.filled_seats}/{course.max_seats}</div>
-                    <div style={{ fontSize: 9, color: T.textMuted, textTransform: "uppercase", fontWeight: 700 }}>Seats</div>
+                  <div className={`rounded-lg border px-2 py-2 text-center ${seatsFull ? "border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/40" : "border-blue-100 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/40"}`}>
+                    <div className={`text-base font-extrabold ${seatsFull ? "text-red-700 dark:text-red-400" : "text-blue-700 dark:text-blue-400"}`}>{course.filled_seats}/{course.max_seats}</div>
+                    <div className="text-[9px] font-bold uppercase text-slate-400 dark:text-slate-500">Seats</div>
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 12, background: T.inputBg, borderRadius: 6, height: 6, overflow: "hidden" }}>
-                  <div style={{ width: `${seatPercent}%`, height: "100%", background: seatPercent > 80 ? "#dc2626" : T.accent, borderRadius: 6, transition: "width 0.5s" }} />
+                <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div
+                    className={`h-full rounded-full transition-all ${seatsFull ? "bg-red-600" : "bg-blue-700 dark:bg-blue-500"}`}
+                    style={{ width: `${seatPercent}%` }}
+                  />
                 </div>
 
-                <div style={{ borderTop: `1px solid ${T.divider}`, paddingTop: 16, marginTop: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={() => openStudentsModal(course)} className="btn btn-p" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10, fontSize: 12 }}>
-                    👨‍🎓 Students
+                <div className="mt-auto flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+                  <button onClick={() => openStudentsModal(course)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-3 py-2.5 !text-xs font-semibold text-white transition-colors hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500">
+                    <Users className="h-3.5 w-3.5" /> Students
                   </button>
-                  <button onClick={() => router.push(`/admin/courses/create?id=${course.id}`)} className="btn btn-g" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10, fontSize: 12 }}>
-                    ✏️ Edit
+                  <button onClick={() => router.push(`/admin/courses/create?id=${course.id}`)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 !text-xs font-semibold text-slate-600 transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:text-blue-400">
+                    <PenLine className="h-3.5 w-3.5" /> Edit
                   </button>
-                  <button onClick={() => handleDelete(course.id, course.title)} disabled={deletingId === course.id} className="btn btn-d" style={{ flex: 1, justifyContent: "center", padding: 10, borderRadius: 10, fontSize: 12 }}>
-                    {deletingId === course.id ? "⏳..." : "🗑️ Delete"}
+                  <button onClick={() => handleDelete(course.id, course.title)} disabled={deletingId === course.id} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 !text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-60 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60">
+                    {deletingId === course.id ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting...</>
+                    ) : (
+                      <><Trash2 className="h-3.5 w-3.5" /> Delete</>
+                    )}
                   </button>
                 </div>
               </div>
@@ -782,10 +1130,12 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
         })}
 
         {filtered.length === 0 && (
-          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 60, background: T.cardBg, borderRadius: 16, border: `1.5px dashed ${T.cardBorder}`, color: T.textMuted }}>
-            <div style={{ width: 64, height: 64, borderRadius: 16, background: T.accentLight, border: `1px solid ${T.accentBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 16px" }}>🎓</div>
-            <h3 className="serif" style={{ fontSize: 20, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>No courses found</h3>
-            <p style={{ fontSize: 14 }}>Create your first course to get started.</p>
+          <div className="col-span-full rounded-2xl border-[1.5px] border-dashed border-slate-300 bg-white p-16 text-center text-slate-400 dark:border-slate-700 dark:bg-[#111a2e] dark:text-slate-500">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-950/40">
+              <GraduationCap className="h-7 w-7 text-blue-700 dark:text-blue-400" />
+            </div>
+            <h3 className="mb-2 text-xl font-bold text-slate-900 dark:text-slate-100">No courses found</h3>
+            <p className="text-sm">Create your first course to get started.</p>
           </div>
         )}
       </div>
@@ -793,11 +1143,11 @@ export default function AdminCoursesClient({ initialCourses }: { initialCourses:
   );
 }
 
-function DetailRow({ label, value, highlight, T }: { label: string; value: string; highlight?: boolean; T: typeof THEMES.light }) {
+function DetailRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-      <span style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}>{label}</span>
-      <span style={{ fontSize: 13, color: highlight ? T.accent : T.textPrimary, fontWeight: highlight ? 700 : 600, textAlign: "right", wordBreak: "break-word", maxWidth: "60%" }}>
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`max-w-[60%] break-words text-right text-[13px] font-semibold ${highlight ? "font-bold text-blue-700 dark:text-blue-400" : "text-slate-900 dark:text-slate-100"}`}>
         {value}
       </span>
     </div>
