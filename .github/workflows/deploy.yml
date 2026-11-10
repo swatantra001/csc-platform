@@ -16,7 +16,7 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: rm0644320
         key: ${{ secrets.EC2_SSH_KEY }}
-        command_timeout: 30m  # Changed from 'timeout' to 'command_timeout'
+        command_timeout: 60m  # Changed from 'timeout' to 'command_timeout'
         script: |
           set -e  # Forces pipeline to crash if any step fails
           
@@ -35,7 +35,7 @@ jobs:
           # 4. Clean up old build cache and install dependencies
           rm -rf .next node_modules .npmrc "D:\\p-vs"
           export CI=true
-          pnpm install --ignore-scripts --no-frozen-lockfile
+          pnpm install --ignore-scripts --no-frozen-lockfile --network-concurrency 1 --child-concurrency 1
           
           # 5. Build the Next.js web app (No monorepo filters needed!)
           NODE_OPTIONS="--max-old-space-size=3072" pnpm build
