@@ -35,8 +35,7 @@ jobs:
           # 4. Clean up old build cache and install dependencies
           rm -rf .next node_modules .npmrc "D:\\p-vs"
           export CI=true
-          pnpm config set only-built-dependencies []
-          pnpm install --no-frozen-lockfile
+          pnpm install --ignore-scripts --no-frozen-lockfile
           
           # 5. Build the Next.js web app (No monorepo filters needed!)
           pnpm build
