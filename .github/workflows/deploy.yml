@@ -38,7 +38,7 @@ jobs:
           pnpm install --ignore-scripts --no-frozen-lockfile
           
           # 5. Build the Next.js web app (No monorepo filters needed!)
-          pnpm build
+          NODE_OPTIONS="--max-old-space-size=3072" pnpm build
           
           # 6. Restart the Socket.io server directly in the root
           export NODE_ENV=production
