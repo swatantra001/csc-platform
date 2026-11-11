@@ -1,4 +1,64 @@
-name: Deploy to EC2 Production
+# name: Deploy to EC2 Production
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#     - name: Execute Deployment Script via SSH
+#       uses: appleboy/ssh-action@master
+#       with:
+#         host: ${{ secrets.EC2_HOST }}
+#         username: rm0644320
+#         key: ${{ secrets.EC2_SSH_KEY }}
+#         command_timeout: 60m  # Changed from 'timeout' to 'command_timeout'
+#         script: |
+#           set -e  # Forces pipeline to crash if any step fails
+          
+#           # 1. Navigate to the project root on EC2
+#           cd /home/ubuntu/csc-platform
+          
+#           # 2. Pull latest standalone web code
+#           git reset --hard
+#           git pull origin main
+          
+#           # 3. Inject the .env.local file SAFELY at the ROOT
+#           cat << 'EOF' > .env.local
+#           ${{ secrets.ENV_FILE }}
+#           EOF
+          
+#           # 4. Clean up old build cache and install dependencies
+#           rm -rf .next node_modules .npmrc "D:\\p-vs"
+#           export CI=true
+#           pnpm install --ignore-scripts --no-frozen-lockfile --network-concurrency 1 --child-concurrency 1
+          
+#           # 5. Build the Next.js web app (No monorepo filters needed!)
+#           NODE_OPTIONS="--max-old-space-size=3072" pnpm build
+          
+#           # 6. Restart the Socket.io server directly in the root
+#           export NODE_ENV=production
+#           pm2 restart csc-web --update-env || pm2 start server.js --name "csc-web"
+          
+#           # 7. Save PM2 state to survive server reboots
+#           pm2 save
+
+
+
+
+
+
+
+
+
+
+
+
+name: Deploy to GCP Production
 
 on:
   push:
@@ -6,43 +66,59 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Execute Deployment Script via SSH
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 12.18.0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      run: pnpm install --no-frozen-lockfile
+
+    - name: Inject Environment Variables
+      run: |
+        cat << 'EOF' > .env.local
+        ${{ secrets.ENV_FILE }}
+        EOF
+
+    - name: Build Next.js App
+      run: pnpm build
+
+    - name: Compress Build Artifacts
+      # If you don't actually use a custom server.js, remove it from the end of this line.
+      run: tar -czf release.tar.gz .next node_modules public package.json .env.local server.js
+
+    - name: Upload to GCP via SCP
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: rm0644320
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "release.tar.gz"
+        target: "/home/rm0644320/csc-platform"
+
+    - name: Extract and Restart PM2 on GCP
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
         username: rm0644320
         key: ${{ secrets.EC2_SSH_KEY }}
-        command_timeout: 60m  # Changed from 'timeout' to 'command_timeout'
         script: |
-          set -e  # Forces pipeline to crash if any step fails
-          
-          # 1. Navigate to the project root on EC2
-          cd /home/ubuntu/csc-platform
-          
-          # 2. Pull latest standalone web code
-          git reset --hard
-          git pull origin main
-          
-          # 3. Inject the .env.local file SAFELY at the ROOT
-          cat << 'EOF' > .env.local
-          ${{ secrets.ENV_FILE }}
-          EOF
-          
-          # 4. Clean up old build cache and install dependencies
-          rm -rf .next node_modules .npmrc "D:\\p-vs"
-          export CI=true
-          pnpm install --ignore-scripts --no-frozen-lockfile --network-concurrency 1 --child-concurrency 1
-          
-          # 5. Build the Next.js web app (No monorepo filters needed!)
-          NODE_OPTIONS="--max-old-space-size=3072" pnpm build
-          
-          # 6. Restart the Socket.io server directly in the root
+          cd /home/rm0644320/csc-platform
+          tar -xzf release.tar.gz
+          rm release.tar.gz
           export NODE_ENV=production
           pm2 restart csc-web --update-env || pm2 start server.js --name "csc-web"
-          
-          # 7. Save PM2 state to survive server reboots
           pm2 save
