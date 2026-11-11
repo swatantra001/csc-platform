@@ -96,8 +96,10 @@ jobs:
     - name: Build Next.js App
       run: pnpm build
 
+    - name: Shrink node_modules (Keep only production)
+      run: pnpm prune --prod
+
     - name: Compress Build Artifacts
-      # If you don't actually use a custom server.js, remove it from the end of this line.
       run: tar -czf release.tar.gz .next node_modules public package.json .env.local server.js
 
     - name: Upload to GCP via SCP
@@ -115,10 +117,11 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: rm0644320
         key: ${{ secrets.EC2_SSH_KEY }}
-        command_timeout: 60m  # Add this line
+        command_timeout: 60m
         script: |
           cd /home/rm0644320/csc-platform
-          tar -xzf release.tar.gz
+          # Adding 'm' flag ignores original timestamps, reducing disk writes
+          tar -xzmf release.tar.gz
           rm release.tar.gz
           export NODE_ENV=production
           pm2 restart csc-web --update-env || pm2 start server.js --name "csc-web"
