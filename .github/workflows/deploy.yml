@@ -97,7 +97,7 @@ jobs:
       run: pnpm build
 
     - name: Shrink node_modules (Keep only production)
-      run: pnpm prune --prod
+      run: pnpm prune --prod --ignore-scripts
 
     - name: Compress Build Artifacts
       run: tar -czf release.tar.gz .next node_modules public package.json .env.local server.js
