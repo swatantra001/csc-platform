@@ -100,7 +100,7 @@ jobs:
       run: pnpm prune --prod --ignore-scripts
 
     - name: Compress Build Artifacts
-      run: tar -czf release.tar.gz .next node_modules public package.json .env.local server.js map-matcher.js
+      run: tar -czf release.tar.gz .next node_modules public package.json .env.local server.js
 
     - name: Upload to GCP via SCP
       uses: appleboy/scp-action@master

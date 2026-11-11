@@ -8,7 +8,7 @@ const { createServer } = require("http");
 const { parse } = require("url");
 const next = require("next");
 const { Server } = require("socket.io");
-const { HMMMapMatcher } = require("./map-matcher");
+// const { HMMMapMatcher } = require("./map-matcher");
 
 // ─── FIREBASE ADMIN ─── ADD THIS
 const admin = require("firebase-admin");
@@ -61,12 +61,12 @@ const app = next({ dev, hostname, port, dir: "." });
 const handle = app.getRequestHandler();
 
 // ─── In-memory stores ───
-const deliveryPaths = new Map(); // requestId -> snapped path array [[lat,lng], ...]
-const rawBuffers = new Map(); // requestId -> raw GPS ring buffer
-const lastPositions = new Map(); // requestId -> latest snapped position object
-const lastProcessedTimes = new Map(); // requestId -> last HMM batch timestamp
-const lastSnapTimes = new Map(); // requestId -> last fastSnap timestamp
-const lastSnapCoords = new Map(); // requestId -> last snapped coords
+// const deliveryPaths = new Map(); // requestId -> snapped path array [[lat,lng], ...]
+// const rawBuffers = new Map(); // requestId -> raw GPS ring buffer
+// const lastPositions = new Map(); // requestId -> latest snapped position object
+// const lastProcessedTimes = new Map(); // requestId -> last HMM batch timestamp
+// const lastSnapTimes = new Map(); // requestId -> last fastSnap timestamp
+// const lastSnapCoords = new Map(); // requestId -> last snapped coords
 
 // const matcher = new HMMMapMatcher(OSRM_URL, {
 // 	maxCandidates: 3,
@@ -223,69 +223,69 @@ app.prepare().then(() => {
 		});
 
 		/* ─── Tracking Rooms ─── */
-		socket.on("join_tracking", (requestId) => {
-			socket.join(`tracking_${requestId}`);
-			console.log(`📍 ${socket.id} joined tracking_${requestId}`);
+		// socket.on("join_tracking", (requestId) => {
+		// 	socket.join(`tracking_${requestId}`);
+		// 	console.log(`📍 ${socket.id} joined tracking_${requestId}`);
 
-			// Seed with existing clean path + current position
-			if (deliveryPaths.has(requestId)) {
-				socket.emit("path_history", deliveryPaths.get(requestId));
-			}
-			if (lastPositions.has(requestId)) {
-				socket.emit("location_updated", lastPositions.get(requestId));
-			}
-		});
+		// 	// Seed with existing clean path + current position
+		// 	if (deliveryPaths.has(requestId)) {
+		// 		socket.emit("path_history", deliveryPaths.get(requestId));
+		// 	}
+		// 	if (lastPositions.has(requestId)) {
+		// 		socket.emit("location_updated", lastPositions.get(requestId));
+		// 	}
+		// });
 
-		socket.on("leave_tracking", (requestId) => {
-			socket.leave(`tracking_${requestId}`);
-		});
+		// socket.on("leave_tracking", (requestId) => {
+		// 	socket.leave(`tracking_${requestId}`);
+		// });
 
-		/* ─── GPS Ingestion ─── */
-		socket.on("update_location", async (payload) => {
-			const { request_id, lat, lng, heading, accuracy, speed } = payload;
-			const now = Date.now();
+		// /* ─── GPS Ingestion ─── */
+		// socket.on("update_location", async (payload) => {
+		// 	const { request_id, lat, lng, heading, accuracy, speed } = payload;
+		// 	const now = Date.now();
 
-			// 1. Buffer raw observation
-			if (!rawBuffers.has(request_id)) rawBuffers.set(request_id, []);
-			const buf = rawBuffers.get(request_id);
-			buf.push({ lat, lng, heading, accuracy, speed, timestamp: now });
-			if (buf.length > 250) buf.shift(); // rolling 250-point window (~12 min @ 3s)
+		// 	// 1. Buffer raw observation
+		// 	if (!rawBuffers.has(request_id)) rawBuffers.set(request_id, []);
+		// 	const buf = rawBuffers.get(request_id);
+		// 	buf.push({ lat, lng, heading, accuracy, speed, timestamp: now });
+		// 	if (buf.length > 250) buf.shift(); // rolling 250-point window (~12 min @ 3s)
 
-			// 2. Throttle fastSnap: only re-snap if moved >8m OR >2s passed
-			const lastCoord = lastSnapCoords.get(request_id);
-			const moved =
-				!lastCoord || matcher.haversine(lastCoord.lat, lastCoord.lng, lat, lng) > 8;
-			const timeOk = now - (lastSnapTimes.get(request_id) || 0) > 2000;
+		// 	// 2. Throttle fastSnap: only re-snap if moved >8m OR >2s passed
+		// 	const lastCoord = lastSnapCoords.get(request_id);
+		// 	const moved =
+		// 		!lastCoord || matcher.haversine(lastCoord.lat, lastCoord.lng, lat, lng) > 8;
+		// 	const timeOk = now - (lastSnapTimes.get(request_id) || 0) > 2000;
 
-			if (!moved && !timeOk) {
-				// Re-broadcast last known snapped position so client stays warm
-				const last = lastPositions.get(request_id);
-				if (last) io.to(`tracking_${request_id}`).emit("location_updated", last);
-				return;
-			}
+		// 	if (!moved && !timeOk) {
+		// 		// Re-broadcast last known snapped position so client stays warm
+		// 		const last = lastPositions.get(request_id);
+		// 		if (last) io.to(`tracking_${request_id}`).emit("location_updated", last);
+		// 		return;
+		// 	}
 
-			// 3. Fast nearest-road snap for live marker
-			try {
-				const snap = await matcher.fastSnap(lat, lng);
-				const snapped = {
-					lat: snap.lat,
-					lng: snap.lng,
-					heading: heading || 0,
-					timestamp: now,
-					roadName: snap.name,
-					snapped: true,
-				};
-				lastPositions.set(request_id, snapped);
-				lastSnapCoords.set(request_id, { lat: snap.lat, lng: snap.lng });
-				lastSnapTimes.set(request_id, now);
-				io.to(`tracking_${request_id}`).emit("location_updated", snapped);
-			} catch (err) {
-				// OSRM down? broadcast raw so tracking doesn't freeze
-				const raw = { lat, lng, heading: heading || 0, timestamp: now, snapped: false };
-				lastPositions.set(request_id, raw);
-				io.to(`tracking_${request_id}`).emit("location_updated", raw);
-			}
-		});
+		// 	// 3. Fast nearest-road snap for live marker
+		// 	try {
+		// 		const snap = await matcher.fastSnap(lat, lng);
+		// 		const snapped = {
+		// 			lat: snap.lat,
+		// 			lng: snap.lng,
+		// 			heading: heading || 0,
+		// 			timestamp: now,
+		// 			roadName: snap.name,
+		// 			snapped: true,
+		// 		};
+		// 		lastPositions.set(request_id, snapped);
+		// 		lastSnapCoords.set(request_id, { lat: snap.lat, lng: snap.lng });
+		// 		lastSnapTimes.set(request_id, now);
+		// 		io.to(`tracking_${request_id}`).emit("location_updated", snapped);
+		// 	} catch (err) {
+		// 		// OSRM down? broadcast raw so tracking doesn't freeze
+		// 		const raw = { lat, lng, heading: heading || 0, timestamp: now, snapped: false };
+		// 		lastPositions.set(request_id, raw);
+		// 		io.to(`tracking_${request_id}`).emit("location_updated", raw);
+		// 	}
+		// });
 
 		socket.on("disconnect", () => {
 			console.log("🔴 Client disconnected:", socket.id);
