@@ -68,11 +68,11 @@ const lastProcessedTimes = new Map(); // requestId -> last HMM batch timestamp
 const lastSnapTimes = new Map(); // requestId -> last fastSnap timestamp
 const lastSnapCoords = new Map(); // requestId -> last snapped coords
 
-const matcher = new HMMMapMatcher(OSRM_URL, {
-	maxCandidates: 3,
-	beta: 8,
-	defaultSigma: 10,
-});
+// const matcher = new HMMMapMatcher(OSRM_URL, {
+// 	maxCandidates: 3,
+// 	beta: 8,
+// 	defaultSigma: 10,
+// });
 
 // ─── FCM NOTIFICATION HELPER ─── ADD THIS
 async function notifyAdminsViaFCM(message, requestId) {
@@ -167,39 +167,39 @@ app.prepare().then(() => {
 	 * Every 5s, grab the rolling window of raw points per delivery,
 	 * run the full Viterbi HMM, and broadcast the cleaned polyline.
 	 */
-	setInterval(async () => {
-		const now = Date.now();
-		for (const [requestId, buffer] of rawBuffers.entries()) {
-			const lastProc = lastProcessedTimes.get(requestId) || 0;
-			const newPoints = buffer.filter((p) => p.timestamp > lastProc);
+	// setInterval(async () => {
+	// 	const now = Date.now();
+	// 	for (const [requestId, buffer] of rawBuffers.entries()) {
+	// 		const lastProc = lastProcessedTimes.get(requestId) || 0;
+	// 		const newPoints = buffer.filter((p) => p.timestamp > lastProc);
 
-			// Trigger: ≥5 new points OR ≥8s since last run
-			if (newPoints.length >= 5 || (newPoints.length > 0 && now - lastProc > 8000)) {
-				try {
-					// Use last 35 points for context (HMM needs history to disambiguate)
-					const window = buffer.slice(-35);
-					const matched = await matcher.match(window);
+	// 		// Trigger: ≥5 new points OR ≥8s since last run
+	// 		if (newPoints.length >= 5 || (newPoints.length > 0 && now - lastProc > 8000)) {
+	// 			try {
+	// 				// Use last 35 points for context (HMM needs history to disambiguate)
+	// 				const window = buffer.slice(-35);
+	// 				const matched = await matcher.match(window);
 
-					if (matched && matched.some((p) => p !== null)) {
-						const snappedPath = matched
-							.filter((p) => p !== null)
-							.map((p) => [p.lat, p.lng]);
+	// 				if (matched && matched.some((p) => p !== null)) {
+	// 					const snappedPath = matched
+	// 						.filter((p) => p !== null)
+	// 						.map((p) => [p.lat, p.lng]);
 
-						deliveryPaths.set(requestId, snappedPath);
+	// 					deliveryPaths.set(requestId, snappedPath);
 
-						io.to(`tracking_${requestId}`).emit("path_snapped", {
-							path: snappedPath,
-							roadName: matched[matched.length - 1]?.roadName || null,
-							timestamp: now,
-						});
-					}
-					lastProcessedTimes.set(requestId, now);
-				} catch (err) {
-					console.error(`[HMM Batch Error] ${requestId}:`, err.message);
-				}
-			}
-		}
-	}, 5000);
+	// 					io.to(`tracking_${requestId}`).emit("path_snapped", {
+	// 						path: snappedPath,
+	// 						roadName: matched[matched.length - 1]?.roadName || null,
+	// 						timestamp: now,
+	// 					});
+	// 				}
+	// 				lastProcessedTimes.set(requestId, now);
+	// 			} catch (err) {
+	// 				console.error(`[HMM Batch Error] ${requestId}:`, err.message);
+	// 			}
+	// 		}
+	// 	}
+	// }, 5000);
 
 	io.on("connection", (socket) => {
 		console.log("🟢 Client connected:", socket.id);

@@ -123,6 +123,7 @@ jobs:
           # Adding 'm' flag ignores original timestamps, reducing disk writes
           tar -xzmf release.tar.gz
           rm release.tar.gz
+          chmod -R u+rwX .
           export NODE_ENV=production
-          pm2 restart csc-web --update-env || pm2 start server.js --name "csc-web"
+          pm2 restart csc-web --update-env || pm2 start npm --name "csc-web" -- start
           pm2 save
